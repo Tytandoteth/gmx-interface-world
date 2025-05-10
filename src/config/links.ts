@@ -1,4 +1,4 @@
-import { ARBITRUM, AVALANCHE } from "config/chains";
+import { ARBITRUM, AVALANCHE, WORLD } from "config/chains";
 import { TOKENS_BY_SYMBOL_MAP } from "sdk/configs/tokens";
 
 export const PRODUCTION_HOST = "https://app.gmx.io";
@@ -11,6 +11,10 @@ const oneInchTokensMap = {
     BTC: "BTC.b",
     ETH: "WETH.e",
     WBTC: "WBTC.e",
+  },
+  [WORLD]: {
+    BTC: "WBTC",
+    ETH: "WETH",
   },
 };
 
@@ -37,6 +41,9 @@ export function getLeaderboardLink(chainId) {
   }
   if (chainId === AVALANCHE) {
     return "https://www.gmx.house/avalanche/leaderboard";
+  }
+  if (chainId === WORLD) {
+    return "https://www.gmx.house/world/leaderboard";
   }
   return "https://www.gmx.house";
 }

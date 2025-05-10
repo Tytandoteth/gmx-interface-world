@@ -1,0 +1,70 @@
+.DeploymentToggle {
+  margin: 16px 0;
+}
+
+.DeploymentToggle .card {
+  background-color: rgba(30, 32, 43, 0.7);
+  border-radius: 4px;
+  padding: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.deployment-info {
+  margin-bottom: 16px;
+}
+
+.deployment-info h3 {
+  margin-top: 0;
+  margin-bottom: 12px;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.deployment-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.deployment-label {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.deployment-value {
+  font-size: 14px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.deployment-value.original {
+  background-color: rgba(28, 57, 187, 0.3);
+  color: #7f9cf5;
+}
+
+.deployment-value.custom {
+  background-color: rgba(148, 28, 187, 0.3);
+  color: #d8b4fe;
+}
+
+.toggle-button {
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  width: 100%;
+}
+
+.toggle-button:hover {
+  background-color: #2563eb;
+}
+
+.toggle-button:active {
+  background-color: #1d4ed8;
+}

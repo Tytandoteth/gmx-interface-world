@@ -3,6 +3,15 @@ import { ReactNode, useCallback, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Context, createContext, useContext, useContextSelector } from "use-context-selector";
 
+import { WORLD, isChainInDevelopment } from "sdk/configs/chains";
+import { 
+  isWorldChain, 
+  withWorldChainFallback, 
+  getWorldChainMockData, 
+  getMulticallMockData,
+  getWorldChainTokensData
+} from "lib/worldchain";
+
 import { getKeepLeverageKey } from "config/localStorage";
 import { SettingsContextType, useSettings } from "context/SettingsContext/SettingsContextProvider";
 import { UserReferralInfo, useUserReferralInfoRequest } from "domain/referrals";
@@ -146,9 +155,87 @@ export function SyntheticsStateContextProvider({
   const account = isAccountPage ? checkSummedAccount : walletAccount;
   const leaderboard = useLeaderboardState(account, isLeaderboardPage);
   const chainId = isLeaderboardPage ? leaderboard.chainId : overrideChainId ?? selectedChainId;
+  
+  // Check if current chain is in development mode (World Chain)
+  const isDevModeChain = isWorldChain(chainId) && isChainInDevelopment(chainId);
+  
+  // Log development mode status for debugging
+  console.log(`Chain ${chainId} is in ${isDevModeChain ? 'development' : 'production'} mode`);
+  
+  /**
+   * Wrap data fetching functions with World Chain development mode support
+   * This ensures we have graceful fallbacks for missing contract data
+   */
+  const withWorldChainSupport = useCallback(<T,>(data: T | undefined | null, mockDataKey: string): T | undefined => {
+    if (data !== undefined && data !== null) return data;
+    if (!isWorldChain(chainId)) return undefined;
+    
+    // For World Chain in development mode, try to provide mock data
+    const mockData = getMulticallMockData<T>(mockDataKey);
+    if (mockData) {
+      console.debug(`[World Chain Dev] Using mock data for ${mockDataKey}`);
+      return mockData;
+    }
+    
+    return undefined;
+  }, [chainId]);
 
-  const markets = useMarkets(chainId);
-  const { tokensData } = useTokensDataRequest(chainId);
+  // Get markets data with World Chain development mode support
+  const marketsResult = useMarkets(chainId);
+  const tokensResult = useTokensDataRequest(chainId);
+  
+  // Apply fallbacks for World Chain in development mode
+  const markets = useMemo(() => {
+    // If we have valid markets data, use it
+    if (marketsResult.marketsData && Object.keys(marketsResult.marketsData).length > 0) {
+      return marketsResult;
+    }
+    
+    // For World Chain in development mode, provide mock data
+    if (isWorldChain(chainId) && isChainInDevelopment(chainId)) {
+      console.debug("[World Chain Dev] Using mock markets data");
+      const mockMarketsData = getWorldChainMockData<Record<string, any>>("markets");
+      
+      // If we have mock data, use it
+      if (mockMarketsData && Object.keys(mockMarketsData).length > 0) {
+        return {
+          ...marketsResult,
+          marketsData: mockMarketsData
+        };
+      }
+    }
+    
+    // Return original result if no fallback is available
+    return marketsResult;
+  }, [chainId, marketsResult]);
+  
+  // Apply tokens data fallbacks for World Chain
+  const tokensData = useMemo(() => {
+    try {
+      // If we have valid tokens data, use it
+      if (tokensResult.tokensData && Object.keys(tokensResult.tokensData).length > 0) {
+        // For World Chain, we might need to merge with our custom token data
+        if (isWorldChain(chainId)) {
+          console.debug("[World Chain] Applying World Chain token data with existing tokens");
+          return getWorldChainTokensData(tokensResult.tokensData, chainId);
+        }
+        return tokensResult.tokensData;
+      }
+      
+      // For World Chain in development mode, provide detailed token configuration
+      if (isWorldChain(chainId) && isChainInDevelopment(chainId)) {
+        console.debug("[World Chain Dev] Using World Chain token configuration");
+        return getWorldChainTokensData({}, chainId);
+      }
+      
+      // Return original result if no fallback is available
+      return tokensResult.tokensData || {};
+    } catch (error) {
+      console.error("[World Chain] Error handling token data:", error);
+      // Always return a valid object to prevent rendering errors
+      return isWorldChain(chainId) ? getWorldChainTokensData({}, chainId) : {};
+    }
+  }, [chainId, tokensResult.tokensData]);
 
   const positionsResult = usePositions(chainId, {
     account,
@@ -156,7 +243,34 @@ export function SyntheticsStateContextProvider({
     tokensData,
   });
 
-  const marketsInfo = useMarketsInfoRequest(chainId);
+  // Get markets info with World Chain development mode support
+  const marketsInfoResult = useMarketsInfoRequest(chainId);
+  
+  // Apply fallbacks for World Chain in development mode
+  const marketsInfo = useMemo(() => {
+    // If we have valid markets info data, use it
+    if (marketsInfoResult.marketsInfoData && Object.keys(marketsInfoResult.marketsInfoData).length > 0) {
+      return marketsInfoResult;
+    }
+    
+    // For World Chain in development mode, provide mock data
+    if (isWorldChain(chainId) && isChainInDevelopment(chainId)) {
+      console.debug("[World Chain Dev] Using mock markets info data");
+      const mockMarketsInfoData = getWorldChainMockData<Record<string, any>>("marketsInfo");
+      
+      // If we have mock data, use it
+      if (mockMarketsInfoData && Object.keys(mockMarketsInfoData).length > 0) {
+        return {
+          ...marketsInfoResult,
+          marketsInfoData: mockMarketsInfoData,
+          tokensData: tokensData || {}
+        };
+      }
+    }
+    
+    // Return original result if no fallback is available
+    return marketsInfoResult;
+  }, [chainId, marketsInfoResult, tokensData]);
 
   const { isFirstOrder } = useIsFirstOrder(chainId, { account });
 
@@ -175,8 +289,25 @@ export function SyntheticsStateContextProvider({
     glvData: glvInfo.glvData,
     withGlv: shouldFetchGlvMarkets,
   });
-  const { positionsConstants } = usePositionsConstantsRequest(chainId);
-  const { uiFeeFactor } = useUiFeeFactorRequest(chainId);
+  // Apply fallbacks for critical contract data when using World Chain in development mode
+  const positionsConstantsResult = usePositionsConstantsRequest(chainId);
+  const uiFeeFactorResult = useUiFeeFactorRequest(chainId);
+  
+  // Apply our World Chain development mode support to ensure we have valid data
+  const positionsConstants = useMemo(() => {
+    // Provide fallback with empty object that matches the expected type
+    const defaultConstants = { 
+      minCollateralUsd: 0n,
+      minPositionSizeUsd: 0n,
+      maxAutoCancelOrders: 0n 
+    };
+    
+    return withWorldChainSupport(positionsConstantsResult.positionsConstants, "usePositionsConstants") || defaultConstants;
+  }, [withWorldChainSupport, positionsConstantsResult.positionsConstants]);
+  
+  const uiFeeFactor = useMemo(() => {
+    return withWorldChainSupport(uiFeeFactorResult.uiFeeFactor, "uiFeeFactorForAccount") ?? 0n;
+  }, [withWorldChainSupport, uiFeeFactorResult.uiFeeFactor]);
   const userReferralInfo = useUserReferralInfoRequest(signer, chainId, account, skipLocalReferralCode);
   const [closingPositionKey, setClosingPositionKey] = useState<string>();
   const [isCandlesLoaded, setIsCandlesLoaded] = useState(false);
@@ -189,11 +320,8 @@ export function SyntheticsStateContextProvider({
 
   const settings = useSettings();
 
-  const {
-    isLoading,
-    positionsInfoData,
-    error: positionsInfoError,
-  } = usePositionsInfoRequest(chainId, {
+  // Request positions info with proper error handling
+  const positionsInfoRequest = usePositionsInfoRequest(chainId, {
     account,
     showPnlInLeverage: settings.isPnlInLeverage,
     marketsInfoData: marketsInfo.marketsInfoData,
@@ -203,6 +331,28 @@ export function SyntheticsStateContextProvider({
     skipLocalReferralCode,
     tokensData,
   });
+  
+  // Extract key values from positions info request with fallbacks
+  const isLoading = positionsInfoRequest.isLoading;
+  const positionsInfoError = positionsInfoRequest.error;
+  
+  // Apply World Chain development mode support to positions info data
+  const positionsInfoData = useMemo(() => {
+    // If we have valid positions info data, use it
+    if (positionsInfoRequest.positionsInfoData) {
+      return positionsInfoRequest.positionsInfoData;
+    }
+    
+    // For World Chain in development mode with no positions, return empty object
+    // This ensures the UI works properly even without position data
+    if (isWorldChain(chainId) && isChainInDevelopment(chainId)) {
+      console.debug("[World Chain Dev] Using empty positions data");
+      return {};
+    }
+    
+    // Return undefined for other chains to match expected behavior
+    return undefined;
+  }, [chainId, positionsInfoRequest.positionsInfoData]);
 
   const ordersInfo = useOrdersInfoRequest(chainId, {
     account,
@@ -243,7 +393,33 @@ export function SyntheticsStateContextProvider({
     enabled: pageType === "trade",
   });
 
-  const { blockTimestampData } = useBlockTimestampRequest(chainId, { skip: !["trade", "pools"].includes(pageType) });
+  // Request block timestamp data with World Chain support
+  const blockTimestampResult = useBlockTimestampRequest(chainId, { skip: !["trade", "pools"].includes(pageType) });
+  
+  // Provide fallback for block timestamp data when using World Chain in development mode
+  const blockTimestampData = useMemo(() => {
+    if (blockTimestampResult.blockTimestampData) {
+      return blockTimestampResult.blockTimestampData;
+    }
+    
+    // Provide mock data for World Chain in development mode
+    if (isWorldChain(chainId) && isChainInDevelopment(chainId)) {
+      const mockData = getMulticallMockData<{ timestamp: number }>("useBlockTimestamp");
+      const currentTimestamp = mockData?.timestamp || Math.floor(Date.now() / 1000);
+      
+      console.debug(`[World Chain Dev] Using ${mockData ? 'mock' : 'current'} timestamp: ${currentTimestamp}`);
+      
+      // Create properly typed BlockTimestampData object
+      const mockBlockTimestampData: BlockTimestampData = {
+        blockTimestamp: BigInt(currentTimestamp),
+        localTimestamp: BigInt(Math.floor(Date.now() / 1000))
+      };
+      
+      return mockBlockTimestampData;
+    }
+    
+    return undefined;
+  }, [chainId, blockTimestampResult.blockTimestampData]);
 
   // TODO move closingPositionKey to positionSellerState
   const positionSellerState = usePositionSellerState(chainId, positionsInfoData?.[closingPositionKey ?? ""]);

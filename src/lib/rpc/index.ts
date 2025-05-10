@@ -6,6 +6,7 @@ import {
   ARBITRUM,
   AVALANCHE,
   AVALANCHE_FUJI,
+  WORLD,
   FALLBACK_PROVIDERS,
   getAlchemyArbitrumWsUrl,
   getFallbackRpcUrl,
@@ -46,6 +47,15 @@ export function getWsProvider(chainId: number): WebSocketProvider | JsonRpcProvi
       staticNetwork: network,
     });
     provider.pollingInterval = 2000;
+    return provider;
+  }
+  
+  if (chainId === WORLD) {
+    // Use standard JSON-RPC for WORLD chain since WebSocket may not be available
+    const provider = new ethers.JsonRpcProvider(getCurrentRpcUrls(WORLD).primary, network, {
+      staticNetwork: network,
+    });
+    provider.pollingInterval = 2000; // Use polling for updates instead of websocket
     return provider;
   }
 }

@@ -1,4 +1,4 @@
-import { ARBITRUM, AVALANCHE, AVALANCHE_FUJI } from "config/chains";
+import { ARBITRUM, AVALANCHE, AVALANCHE_FUJI, WORLD } from "config/chains";
 
 import gmIcon from "img/gm_icon.svg";
 import arbitrum from "img/ic_arbitrum_24.svg";
@@ -48,6 +48,13 @@ const ICONS: Record<number | "common", ChainIcons> = {
     gm: gmAvax,
     gmx: gmxAvax,
     glp: glpAvax,
+  },
+  [WORLD]: {
+    network: arbitrum, // Using Arbitrum icon temporarily
+    gm: gmArbitrum,    // Using Arbitrum icon temporarily
+    gmx: gmxArbitrum,  // Using Arbitrum icon temporarily
+    glp: glpArbitrum,  // Using Arbitrum icon temporarily
+    esgmx: esGMXArbitrumIcon,
   },
   common: {
     gmx: gmxIcon,

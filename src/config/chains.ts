@@ -8,25 +8,42 @@ import {
 } from "sdk/configs/chains";
 
 import { isDevelopment } from "./env";
-import { ARBITRUM, AVALANCHE, AVALANCHE_FUJI, BSС_MAINNET, BSС_TESTNET, ETH_MAINNET } from "./static/chains";
+import { ARBITRUM, AVALANCHE, AVALANCHE_FUJI, BSС_MAINNET, BSС_TESTNET, ETH_MAINNET, WORLD } from "./static/chains";
 
 export * from "./static/chains";
 
-export const SUPPORTED_CHAIN_IDS = isDevelopment() ? SDK_SUPPORTED_CHAIN_IDS_DEV : SDK_SUPPORTED_CHAIN_IDS;
+// Check if WORLD chain should be included based on environment variable
+const includeWorldChain = import.meta.env.VITE_APP_INCLUDE_WORLD_CHAIN === "true";
+
+// Create a list of supported chains, conditionally including WORLD
+const baseSupportedChainIds = isDevelopment() ? SDK_SUPPORTED_CHAIN_IDS_DEV : SDK_SUPPORTED_CHAIN_IDS;
+const customSupportedChainIds = includeWorldChain ? 
+  (isDevelopment() ? [...SDK_SUPPORTED_CHAIN_IDS_DEV, WORLD] : [...SDK_SUPPORTED_CHAIN_IDS, WORLD]) :
+  baseSupportedChainIds;
+
+export const SUPPORTED_CHAIN_IDS = customSupportedChainIds;
 
 const { parseEther } = ethers;
 
 export const ENV_ARBITRUM_RPC_URLS = import.meta.env.VITE_APP_ARBITRUM_RPC_URLS;
 export const ENV_AVALANCHE_RPC_URLS = import.meta.env.VITE_APP_AVALANCHE_RPC_URLS;
+export const ENV_WORLD_RPC_URLS = import.meta.env.VITE_APP_WORLD_RPC_URLS;
 
-// TODO take it from web3
-export const DEFAULT_CHAIN_ID = ARBITRUM;
+// Get chain ID from environment or fallback to ARBITRUM
+const envDefaultChainId = import.meta.env.VITE_APP_DEFAULT_CHAIN_ID;
+const parsedChainId = envDefaultChainId ? parseInt(envDefaultChainId as string, 10) : undefined;
+
+// Use environment chain ID if valid, otherwise fallback to ARBITRUM
+export const DEFAULT_CHAIN_ID = parsedChainId && !isNaN(parsedChainId) && SUPPORTED_CHAIN_IDS.includes(parsedChainId) 
+  ? parsedChainId 
+  : ARBITRUM;
 export const CHAIN_ID = DEFAULT_CHAIN_ID;
 
 export const IS_NETWORK_DISABLED = {
   [ARBITRUM]: false,
   [AVALANCHE]: false,
   [BSС_MAINNET]: false,
+  [WORLD]: false,
 };
 
 export const CHAIN_NAMES_MAP = {
@@ -35,15 +52,27 @@ export const CHAIN_NAMES_MAP = {
   [ARBITRUM]: "Arbitrum",
   [AVALANCHE]: "Avalanche",
   [AVALANCHE_FUJI]: "Avalanche Fuji",
+  [WORLD]: "World",
 };
 
 export const NETWORK_EXECUTION_TO_CREATE_FEE_FACTOR = {
   [ARBITRUM]: 10n ** 29n * 5n,
   [AVALANCHE]: 10n ** 29n * 35n,
   [AVALANCHE_FUJI]: 10n ** 29n * 2n,
+  [WORLD]: 10n ** 29n * 5n,
 } as const;
 
 const constants = {
+  [WORLD]: {
+    nativeTokenSymbol: "WLD",
+    defaultCollateralSymbol: "USDC",
+    defaultFlagOrdersEnabled: true,
+    positionReaderPropsLength: 8,
+    v2: {
+      minCollateralUsd: parseEther("10"),
+      minPositionSizeUsd: parseEther("10"),
+    },
+  },
   [BSС_MAINNET]: {
     nativeTokenSymbol: "BNB",
     defaultCollateralSymbol: "BUSD",
@@ -106,6 +135,15 @@ const constants = {
 const ALCHEMY_WHITELISTED_DOMAINS = ["gmx.io", "app.gmx.io"];
 
 export const RPC_PROVIDERS = {
+  [WORLD]: [
+    // Use localhost for development and testing
+    "http://localhost:8545",
+    // Production URLs
+    "https://sleek-little-leaf.worldchain-mainnet.quiknode.pro/49cff082c3f8db6bc60bd05d7256d2fda94a42cd/",
+    "https://rpc.world-chain.org",
+    // Add any additional World chain RPC URLs from ENV_WORLD_RPC_URLS if needed
+    ...(ENV_WORLD_RPC_URLS ? ENV_WORLD_RPC_URLS.split(",") : []),
+  ],
   [ETH_MAINNET]: ["https://rpc.ankr.com/eth"],
   [BSС_MAINNET]: [
     "https://bsc-dataseed.binance.org",
@@ -136,6 +174,7 @@ export const RPC_PROVIDERS = {
     "https://avalanche-c-chain-rpc.publicnode.com",
     "https://1rpc.io/avax/c",
   ],
+  // WORLD RPC URLs are defined above
   [AVALANCHE_FUJI]: [
     "https://avalanche-fuji-c-chain.publicnode.com",
     "https://api.avax-test.network/ext/bc/C/rpc",
@@ -147,6 +186,7 @@ export const RPC_PROVIDERS = {
 export const FALLBACK_PROVIDERS = {
   [ARBITRUM]: ENV_ARBITRUM_RPC_URLS ? JSON.parse(ENV_ARBITRUM_RPC_URLS) : [getAlchemyArbitrumHttpUrl()],
   [AVALANCHE]: ENV_AVALANCHE_RPC_URLS ? JSON.parse(ENV_AVALANCHE_RPC_URLS) : [getAlchemyAvalancheHttpUrl()],
+  [WORLD]: ENV_WORLD_RPC_URLS ? JSON.parse(ENV_WORLD_RPC_URLS) : ["https://sleek-little-leaf.worldchain-mainnet.quiknode.pro/49cff082c3f8db6bc60bd05d7256d2fda94a42cd/"],
   [AVALANCHE_FUJI]: [
     "https://endpoints.omniatech.io/v1/avax/fuji/public",
     "https://api.avax-test.network/ext/bc/C/rpc",
@@ -266,6 +306,8 @@ export function getExplorerUrl(chainId) {
     return "https://snowtrace.io/";
   } else if (chainId === AVALANCHE_FUJI) {
     return "https://testnet.snowtrace.io/";
+  } else if (chainId === WORLD) {
+    return "https://explorer.world-chain.org/";
   }
   return "https://etherscan.io/";
 }

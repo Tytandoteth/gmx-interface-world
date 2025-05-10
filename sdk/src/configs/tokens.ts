@@ -2,12 +2,116 @@ import { zeroAddress } from "viem";
 
 import type { Token, TokenCategory } from "types/tokens";
 
-import { ARBITRUM, AVALANCHE, AVALANCHE_FUJI } from "./chains";
+import { ARBITRUM, AVALANCHE, AVALANCHE_FUJI, WORLD } from "./chains";
 import { getContract } from "./contracts";
 
 export const NATIVE_TOKEN_ADDRESS = zeroAddress;
 
 export const TOKENS: { [chainId: number]: Token[] } = {
+  [WORLD]: [
+    {
+      name: "World",
+      symbol: "WLD",
+      decimals: 18,
+      address: zeroAddress,
+      isNative: true,
+      isShortable: true,
+      categories: ["layer1"],
+      imageUrl: "https://assets.coingecko.com/coins/images/31102/small/worldcoin.png?1690184477", // WLD logo
+      coingeckoUrl: "https://www.coingecko.com/en/coins/worldcoin",
+      isV1Available: true,
+    },
+    {
+      name: "Wrapped World",
+      symbol: "WWLD",
+      decimals: 18,
+      address: "0x1Bd411135304469c4c15312f1939da115a1AE4c6", // WWLD from deployment
+      isWrapped: true,
+      baseSymbol: "WLD",
+      imageUrl: "https://assets.coingecko.com/coins/images/31102/small/worldcoin.png?1690184477", // WLD logo
+      coingeckoUrl: "https://www.coingecko.com/en/coins/worldcoin",
+      isV1Available: true,
+    },
+    {
+      name: "USD Coin",
+      symbol: "USDC",
+      decimals: 6,
+      address: "0x4D8826Ae25866b72FF5b756a2F7E203D5b92Ceb0", // USDC on World Chain
+      isStable: true,
+      imageUrl: "https://assets.coingecko.com/coins/images/6319/small/USD_Coin_icon.png?1547042389",
+      coingeckoUrl: "https://www.coingecko.com/en/coins/usd-coin",
+      isV1Available: true,
+    },
+    {
+      name: "Tether",
+      symbol: "USDT",
+      decimals: 6,
+      address: "0x6d4664586b7035B3db86c5Db0F17Bed31868A797", // USDT on World Chain
+      isStable: true,
+      imageUrl: "https://assets.coingecko.com/coins/images/325/small/Tether.png?1668148663",
+      coingeckoUrl: "https://www.coingecko.com/en/coins/tether",
+      isV1Available: true,
+    },
+    {
+      name: "Bitcoin",
+      symbol: "BTC",
+      decimals: 8,
+      address: "0x3A69b3651B5a2BfA896d4c7fBB6F978677B37Ce1", // Placeholder address - replace with actual
+      isShortable: true,
+      imageUrl: "https://assets.coingecko.com/coins/images/1/small/bitcoin.png?1547033579",
+      coingeckoUrl: "https://www.coingecko.com/en/coins/bitcoin",
+      isV1Available: true,
+    },
+    {
+      name: "Ethereum",
+      symbol: "ETH",
+      decimals: 18,
+      address: "0xCa6c572e39F5E61D7Bb2CD545Da2EBC401295e84", // Placeholder address - replace with actual
+      isShortable: true,
+      imageUrl: "https://assets.coingecko.com/coins/images/279/small/ethereum.png?1595348880",
+      coingeckoUrl: "https://www.coingecko.com/en/coins/ethereum",
+      isV1Available: true,
+    },
+    {
+      name: "GMX",
+      symbol: "GMX",
+      decimals: 18,
+      address: "0xEF3C86Ee71564c0FA7a4Ee0E314A0B3c9Ee73080", // Placeholder address - replace with actual
+      isShortable: false,
+      imageUrl: "https://assets.coingecko.com/coins/images/18323/small/arbit.png?1631532468",
+      coingeckoUrl: "https://www.coingecko.com/",
+      isV1Available: true,
+    },
+    {
+      name: "Escrowed GMX",
+      symbol: "esGMX",
+      decimals: 18,
+      address: "0xBe61f2723aF39BD0A2c702eE038A22e96a5C310e",
+      isShortable: false,
+      imageUrl: "https://assets.coingecko.com/coins/images/18323/small/arbit.png?1631532468", // Placeholder image
+      coingeckoUrl: "https://www.coingecko.com/",
+      isV1Available: true,
+    },
+    {
+      name: "GMX LP",
+      symbol: "GLP",
+      decimals: 18,
+      address: "0x4277f8F2c384827B5273592FF7CeBd9f2C1ac258", // Placeholder - needs actual address
+      imageUrl: "https://github.com/gmx-io/gmx-assets/blob/main/GMX-Assets/PNG/GLP_LOGO%20ONLY.png?raw=true",
+      coingeckoUrl: "https://www.coingecko.com/",
+      explorerUrl: "https://explorer.world-chain.org/address/0x4277f8F2c384827B5273592FF7CeBd9f2C1ac258",
+      isV1Available: true,
+    },
+    {
+      name: "USD Gambit",
+      symbol: "USDG",
+      decimals: 18,
+      address: "0x85E76cbf4893c1fbcB34dCF1239A91CE2A4CF5a7", // Placeholder - needs actual address
+      imageUrl: "https://assets.coingecko.com/coins/images/15886/small/usdg-02.png?1622181350",
+      explorerUrl: "https://explorer.world-chain.org/address/0x85E76cbf4893c1fbcB34dCF1239A91CE2A4CF5a7",
+      isV1Available: true,
+    },
+  ],
   [ARBITRUM]: [
     {
       name: "Ethereum",
@@ -1411,6 +1515,8 @@ export const TOKENS: { [chainId: number]: Token[] } = {
 };
 
 export const TOKEN_COLOR_MAP = {
+  WLD: "#23a55a", // World token color
+  WWLD: "#23a55a", // World token color
   ETH: "#6062a6",
   BTC: "#F7931A",
   WBTC: "#F7931A",
@@ -1452,7 +1558,7 @@ export const TOKENS_BY_SYMBOL_MAP: { [chainId: number]: { [symbol: string]: Toke
 export const WRAPPED_TOKENS_MAP: { [chainId: number]: Token } = {};
 export const NATIVE_TOKENS_MAP: { [chainId: number]: Token } = {};
 
-const CHAIN_IDS = [ARBITRUM, AVALANCHE, AVALANCHE_FUJI];
+const CHAIN_IDS = [ARBITRUM, AVALANCHE, AVALANCHE_FUJI, WORLD];
 
 for (let j = 0; j < CHAIN_IDS.length; j++) {
   const chainId = CHAIN_IDS[j];

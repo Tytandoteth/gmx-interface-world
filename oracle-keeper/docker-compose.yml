@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  oracle-keeper:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: redstone-oracle-keeper
+    restart: always
+    ports:
+      - "3002:3002"
+    environment:
+      - PORT=3002
+      - HOST=0.0.0.0
+      - RPC_URL=${RPC_URL}
+      - CHAIN_ID=${CHAIN_ID}
+      - REDSTONE_PRICE_FEED_ADDRESS=${REDSTONE_PRICE_FEED_ADDRESS}
+      - SUPPORTED_TOKENS=${SUPPORTED_TOKENS}
+      - PRICE_CACHE_DURATION_MS=${PRICE_CACHE_DURATION_MS}
+      - LOG_LEVEL=${LOG_LEVEL}
+    volumes:
+      - ./logs:/app/logs
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    
+  # Uncomment to add monitoring with Prometheus and Grafana
+  # prometheus:
+  #   image: prom/prometheus:latest
+  #   container_name: prometheus
+  #   restart: always
+  #   ports:
+  #     - "9090:9090"
+  #   volumes:
+  #     - ./prometheus:/etc/prometheus
+  #     - prometheus_data:/prometheus
+  #   command:
+  #     - '--config.file=/etc/prometheus/prometheus.yml'
+  #     - '--storage.tsdb.path=/prometheus'
+  #     - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+  #     - '--web.console.templates=/usr/share/prometheus/consoles'
+  #
+  # grafana:
+  #   image: grafana/grafana:latest
+  #   container_name: grafana
+  #   restart: always
+  #   ports:
+  #     - "3000:3000"
+  #   volumes:
+  #     - grafana_data:/var/lib/grafana
+  #   depends_on:
+  #     - prometheus
+
+# Uncomment to add monitoring with Prometheus and Grafana
+# volumes:
+#   prometheus_data:
+#   grafana_data:

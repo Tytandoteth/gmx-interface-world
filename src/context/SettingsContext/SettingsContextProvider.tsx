@@ -1,7 +1,7 @@
 import noop from "lodash/noop";
 import { Dispatch, ReactNode, SetStateAction, createContext, useContext, useEffect, useMemo, useState } from "react";
 
-import { ARBITRUM, EXECUTION_FEE_CONFIG_V2, SUPPORTED_CHAIN_IDS } from "config/chains";
+import { ARBITRUM, EXECUTION_FEE_CONFIG_V2, SUPPORTED_CHAIN_IDS, WORLD } from "config/chains";
 import { isDevelopment } from "config/env";
 import { DEFAULT_ACCEPTABLE_PRICE_IMPACT_BUFFER, DEFAULT_SLIPPAGE_AMOUNT } from "config/factors";
 import {
@@ -97,22 +97,51 @@ export function SettingsContextProvider({ children }: { children: ReactNode }) {
   const [hasOverriddenDefaultArb30ExecutionFeeBufferBpsKey, setHasOverriddenDefaultArb30ExecutionFeeBufferBpsKey] =
     useLocalStorageSerializeKey(getHasOverriddenDefaultArb30ExecutionFeeBufferBpsKey(chainId), false);
 
+  // Add fallback for chains not in EXECUTION_FEE_CONFIG_V2
+  const defaultBufferBps = EXECUTION_FEE_CONFIG_V2[chainId]?.defaultBufferBps || 1000; // Default to 10% if not configured
+  
   let [executionFeeBufferBps, setExecutionFeeBufferBps] = useLocalStorageSerializeKey(
     getExecutionFeeBufferBpsKey(chainId),
-    EXECUTION_FEE_CONFIG_V2[chainId]?.defaultBufferBps
+    defaultBufferBps
   );
-  const shouldUseExecutionFeeBuffer = Boolean(EXECUTION_FEE_CONFIG_V2[chainId].defaultBufferBps);
+  const shouldUseExecutionFeeBuffer = Boolean(defaultBufferBps);
+
+  // Safely initialize oracle keeper instances with error handling
+  const initialOracleKeeperConfig = useMemo(() => {
+    return SUPPORTED_CHAIN_IDS.reduce<{ [chainId: number]: number }>(
+      (acc, chainId) => {
+        try {
+          acc[chainId] = getOracleKeeperRandomIndex(chainId);
+        } catch (error) {
+          // Default to 0 if there's an error getting the random index
+          acc[chainId] = 0;
+        }
+        return acc;
+      },
+      {}
+    );
+  }, []);
 
   const [oracleKeeperInstancesConfig, setOracleKeeperInstancesConfig] = useLocalStorageSerializeKey(
     ORACLE_KEEPER_INSTANCES_CONFIG_KEY,
-    SUPPORTED_CHAIN_IDS.reduce(
-      (acc, chainId) => {
-        acc[chainId] = getOracleKeeperRandomIndex(chainId);
-        return acc;
-      },
-      {} as { [chainId: number]: number }
-    )
+    initialOracleKeeperConfig
   );
+  
+  // Force World chain to use our local Oracle Keeper
+  // Apply this immediately rather than in a useEffect to avoid initial render errors
+  // This solves the "no available oracle keeper for chain 424" error
+  useEffect(() => {
+    // Always ensure World chain uses the first Oracle Keeper URL (index 0)
+    console.log("Setting Oracle Keeper for World chain:", WORLD);
+    setOracleKeeperInstancesConfig((prevConfig) => {
+      // Handle case where prevConfig might be undefined
+      const newConfig = prevConfig ? { ...prevConfig } : {};
+      // Explicitly set World chain to use index 0
+      newConfig[WORLD] = 0; 
+      console.log("Updated Oracle Keeper config:", newConfig);
+      return newConfig;
+    });
+  }, [setOracleKeeperInstancesConfig]); // Run once on mount
 
   const [savedShowPnlAfterFees, setSavedShowPnlAfterFees] = useLocalStorageSerializeKey(
     [chainId, SHOW_PNL_AFTER_FEES_KEY],
@@ -174,7 +203,8 @@ export function SettingsContextProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!hasOverriddenDefaultArb30ExecutionFeeBufferBpsKey && chainId === ARBITRUM) {
-      setExecutionFeeBufferBps(EXECUTION_FEE_CONFIG_V2[chainId]?.defaultBufferBps);
+      const defaultBufferBps = EXECUTION_FEE_CONFIG_V2[chainId]?.defaultBufferBps || 3000; // Default to 30% for Arbitrum
+      setExecutionFeeBufferBps(defaultBufferBps);
       setHasOverriddenDefaultArb30ExecutionFeeBufferBpsKey(true);
     }
   }, [

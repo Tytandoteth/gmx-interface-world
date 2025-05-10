@@ -1,8 +1,51 @@
 import { type Address, zeroAddress } from "viem";
 
-import { ARBITRUM, AVALANCHE, AVALANCHE_FUJI, BSС_MAINNET, BSС_TESTNET } from "./chains";
+import { ARBITRUM, AVALANCHE, AVALANCHE_FUJI, BSС_MAINNET, BSС_TESTNET, WORLD } from "./chains";
 
 export const CONTRACTS: Record<number, Record<string, Address>> = {
+  [WORLD]: {
+    // world chain
+    Vault: "0xc2039dA724Ba0d55A5a3B235d25392D61B6028AE",
+    Router: "0x5C8C8F95d54bCcDD13eEc2ACc3053eebbdBCf4eF", // Updated per deployment info
+    VaultReader: "0xfebB9f4CAC4cD523598fE1C5771181440143F24A", // Using placeholder as not defined in deployment file
+    Reader: "0x03EF2ce96726d3026B97c0dCcbbb2fD312FC0F26", // Using RewardReader from deployment
+    GlpManager: "0xA90Cd58Ae50a2Ff936633E1E0Af9F5138c1C2787",
+    RewardRouter: "0xe447c609536Ff94B7d954cA056a911Fb3515F5F8",
+    GlpRewardRouter: "0xB95DB5B167D75e6d04227CfFFA61069348d271F5", // Using placeholder
+    RewardReader: "0x03EF2ce96726d3026B97c0dCcbbb2fD312FC0F26",
+    GovToken: "0xEF3C86Ee71564c0FA7a4Ee0E314A0B3c9Ee73080", // Using GMX from deployment
+    NATIVE_TOKEN: "0x1Bd411135304469c4c15312f1939da115a1AE4c6", // WWORLD from deployment
+    WLD: "0x58e670fF93aC5527bf9c3c31D03237D43439cD1F", // Native World Chain token
+    GLP: "0x4277f8F2c384827B5273592FF7CeBd9f2C1ac258", // GLP token on World Chain
+    GMX: "0xEF3C86Ee71564c0FA7a4Ee0E314A0B3c9Ee73080",
+    ES_GMX: "0xBe61f2723aF39BD0A2c702eE038A22e96a5C310e", // Using EsGMX from deployment
+    BN_GMX: "0x35247165119B69A40edD5304969560D0ef486921", // BN_GMX token on World Chain
+    USDG: "0x85E76cbf4893c1fbcB34dCF1239A91CE2A4CF5a7", // USDG token on World Chain
+    ES_GMX_IOU: "0x6260101218eC4cCfFF1b778936C6f2400f95A954", // ES_GMX_IOU token on World Chain
+    
+    OrderBook: "0x3FeF43666283cF1bd5F242dDf604b81d5543c7fF",
+    OrderExecutor: "0x7257ac5D0a0aaC04AA7bA2AC0A6Eb742E332c3fB", // OrderExecutor on World Chain
+    OrderBookReader: "0xa27C20A7CF0e1C68C0460706bB674f98F362Bc21", // Placeholder
+    
+    PositionRouter: "0x2219bfEBD6A396080F8da713b051386f71c3b48c",
+    PositionManager: "0xAD2DbB0B846f0100dC65446C3bf9ABdB01Fc255c",
+    
+    ReferralStorage: "0xe6fab3f0c7199b0d34d7fbe83394fc0e0d06e99d", // Placeholder
+    ReferralReader: "0x8Aa382760BCdCe8644C33e6C2D52f6304A76F5c8", // Placeholder
+    Timelock: "0xD0837817BBB014a70a0cfd26B938e857aD9AF06d", // Updated to new Timelock with 5-min buffer
+    OldTimelock: "0x5266f62389570Dcfca5C37390d7c6000A425D76a", // Original Timelock with 24h buffer
+    VaultPriceFeed: "0x27f97f1331Abe2253C16c52c84a93717Ca7AcEae", // Added from deployment info
+    
+    // Placeholders for Synthetics contracts - update when available
+    DataStore: "0xFD70de6b91282D8017aA4E741e9Ae325CAb992d8", // Placeholder 
+    EventEmitter: "0xC8ee91A54287DB53897056e12D9819156D3822Fb", // Placeholder
+    SubaccountRouter: "0xa329221a77BE08485f59310b873b14815c82E10D", // Placeholder
+    ExchangeRouter: "0x5ac4e27341e4cccb3e5fd62f9e62db2adf43dd57", // Placeholder
+    SyntheticsReader: "0x0537C767cDAC0726c76Bb89e92904fe28fd02fE1", // Placeholder
+    SyntheticsRouter: "0x7452c558d45f8afC8c83dAe62C3f8A5BE19c71f6", // Placeholder
+    
+    Multicall: "0x842ec2c7d803033edf55e478f461fc547bc54eb2", // Placeholder
+  },
   [BSС_MAINNET]: {
     // bsc mainnet
     Treasury: "0xa44E7252a0C137748F523F112644042E5987FfC7",

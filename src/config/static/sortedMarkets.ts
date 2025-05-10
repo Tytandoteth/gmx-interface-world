@@ -1,4 +1,4 @@
-import { ARBITRUM, AVALANCHE, AVALANCHE_FUJI } from "./chains";
+import { ARBITRUM, AVALANCHE, AVALANCHE_FUJI, WORLD } from "./chains";
 
 /*
   A temporary solution before positions sorting logic is updated
@@ -8,6 +8,18 @@ import { ARBITRUM, AVALANCHE, AVALANCHE_FUJI } from "./chains";
   or update arrays based on marketInfo sorting in runtime
 */
 export const SORTED_MARKETS = {
+  [WORLD]: [
+    // WLD/USD market - primary market first
+    "0x7f1fa204bb700853D36994DA19F830b6Ad18455D",
+    // ETH/USD market
+    "0x70d95587d40A2caf56bd97485aB3Eec10Bee6335",
+    // BTC/USD market
+    "0x47c031236e19d024b42f8AE6780E44A573170702",
+    // BTC/WLD market
+    "0x6853EA96FF216fAb11D2d930CE3C508556A4bdc3",
+    // ETH/WLD market
+    "0x09400D9DB990D5ed3f35D7be61DfAEB900Af03C8",
+  ],
   [ARBITRUM]: [
     "0x47c031236e19d024b42f8AE6780E44A573170703",
     "0x7C11F78Ce78768518D743E81Fdfa2F860C6b9A77",

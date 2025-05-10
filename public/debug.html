@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>GMX Debug</title>
+  <script>
+    window.onload = function() {
+      // Create a simple logging mechanism
+      const log = document.getElementById('log');
+      const addLog = (msg) => {
+        const item = document.createElement('div');
+        item.textContent = msg;
+        log.appendChild(item);
+      };
+
+      addLog('Debug page loaded');
+      
+      // Check if we have ethereum provider
+      if (window.ethereum) {
+        addLog('Ethereum provider found');
+      } else {
+        addLog('No Ethereum provider found');
+      }
+
+      // Test RPC connection
+      const testRPC = async () => {
+        try {
+          const response = await fetch('https://rpc.world-chain.org', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              jsonrpc: '2.0',
+              method: 'eth_chainId',
+              params: [],
+              id: 1
+            })
+          });
+          const data = await response.json();
+          addLog(`RPC Response: ${JSON.stringify(data)}`);
+        } catch (error) {
+          addLog(`RPC Error: ${error.message}`);
+        }
+      };
+
+      testRPC();
+    };
+  </script>
+  <style>
+    body { background: #111; color: #eee; font-family: monospace; margin: 20px; }
+    #log { border: 1px solid #333; padding: 10px; margin-top: 20px; }
+    #log div { margin-bottom: 5px; }
+  </style>
+</head>
+<body>
+  <h1>GMX Debug Page</h1>
+  <div id="log"></div>
+</body>
+</html>

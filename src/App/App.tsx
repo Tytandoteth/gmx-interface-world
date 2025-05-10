@@ -23,11 +23,14 @@ import { SyntheticsEventsProvider } from "context/SyntheticsEvents";
 import { TokensBalancesContextProvider } from "context/TokensBalancesContext/TokensBalancesContextProvider";
 import { TokensFavoritesContextProvider } from "context/TokensFavoritesContext/TokensFavoritesContextProvider";
 import { WebsocketContextProvider } from "context/WebsocketContext/WebsocketContextProvider";
+import { WorldChainProvider } from "context/WorldChainContext";
 import { useChainId } from "lib/chains";
 import { defaultLocale, dynamicActivate } from "lib/i18n";
+import { initWorldChainDevMode, initWorldChainMetrics, initWorldChainMulticallHandler } from "lib/worldchain";
 import { RainbowKitProviderWrapper } from "lib/wallets/WalletProvider";
 
 import SEO from "components/Common/SEO";
+import { WorldChainDevBanner } from "components/WorldChainDevMode";
 
 import { AppRoutes } from "./AppRoutes";
 import { SWRConfigProp } from "./swrConfig";
@@ -41,18 +44,43 @@ if (window?.ethereum?.autoRefreshOnNetworkChange) {
 function App() {
   const { chainId } = useChainId();
 
+  // Initialize language settings
   useEffect(() => {
     const defaultLanguage = localStorage.getItem(LANGUAGE_LOCALSTORAGE_KEY) || defaultLocale;
     dynamicActivate(defaultLanguage);
   }, []);
+  
+  // Initialize World Chain development mode
+  // This ensures Oracle Keeper and contract settings are properly configured
+  useEffect(() => {
+    // Initialize World Chain development mode with proper Oracle Keeper settings
+    initWorldChainDevMode();
+    
+    // Initialize World Chain metrics handling
+    // This prevents metrics errors when in development mode
+    initWorldChainMetrics();
+    
+    // Initialize World Chain multicall error handler
+    // This provides fallback data for multicall errors
+    initWorldChainMulticallHandler();
+    
+    // Store current chain ID in window for easier access by handlers
+    (window as any).currentChainId = chainId;
+  }, [chainId]);
 
-  let app = <AppRoutes />;
+  let app = (
+    <>
+      <WorldChainDevBanner />
+      <AppRoutes />
+    </>
+  );
   app = <SorterContextProvider>{app}</SorterContextProvider>;
   app = <TokensFavoritesContextProvider>{app}</TokensFavoritesContextProvider>;
   app = <SyntheticsEventsProvider>{app}</SyntheticsEventsProvider>;
   app = <SubaccountContextProvider>{app}</SubaccountContextProvider>;
   app = <TokensBalancesContextProvider>{app}</TokensBalancesContextProvider>;
   app = <WebsocketContextProvider>{app}</WebsocketContextProvider>;
+  app = <WorldChainProvider>{app}</WorldChainProvider>;
   app = <SEO>{app}</SEO>;
   app = <RainbowKitProviderWrapper>{app}</RainbowKitProviderWrapper>;
   app = <I18nProvider i18n={i18n as any}>{app}</I18nProvider>;

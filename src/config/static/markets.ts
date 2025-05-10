@@ -6,7 +6,7 @@
 */
 import { MARKETS as SDK_MARKETS } from "sdk/configs/markets";
 
-import { ARBITRUM, AVALANCHE, AVALANCHE_FUJI } from "./chains";
+import { ARBITRUM, AVALANCHE, AVALANCHE_FUJI, WORLD } from "./chains";
 
 type MarketUiConfig = {
   enabled: boolean;
@@ -17,6 +17,16 @@ type MarketUiConfig = {
   When adding new markets, please add them also to the end of the list in ./sortedMarkets.ts
 */
 const MARKETS_UI_CONFIGS: Record<number, Record<string, MarketUiConfig>> = {
+  [WORLD]: {
+    // WLD/USD market
+    "0x99A49AaA79b648ee24e85c4eb3A1C9c429A95652": {
+      enabled: true,
+    },
+    // ETH/USD market
+    "0xE1a9E792851b22A808639cf8e75D0A4025333f4B": {
+      enabled: true,
+    },
+  },
   [ARBITRUM]: {
     // BTC/USD [WBTC.e-USDC]
     "0x47c031236e19d024b42f8AE6780E44A573170703": {

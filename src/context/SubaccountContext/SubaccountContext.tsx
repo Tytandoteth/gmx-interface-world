@@ -4,7 +4,7 @@ import { ethers } from "ethers";
 import { Context, PropsWithChildren, useCallback, useEffect, useMemo, useState } from "react";
 import { createContext, useContextSelector } from "use-context-selector";
 
-import { ARBITRUM, AVALANCHE, AVALANCHE_FUJI, NETWORK_EXECUTION_TO_CREATE_FEE_FACTOR } from "config/chains";
+import { ARBITRUM, AVALANCHE, AVALANCHE_FUJI, NETWORK_EXECUTION_TO_CREATE_FEE_FACTOR, WORLD } from "config/chains";
 import { getContract } from "config/contracts";
 import {
   SUBACCOUNT_ORDER_ACTION,
@@ -81,6 +81,7 @@ function getFactorByChainId(chainId: number) {
     case ARBITRUM:
     case AVALANCHE_FUJI:
     case AVALANCHE:
+    case WORLD:
       return NETWORK_EXECUTION_TO_CREATE_FEE_FACTOR[chainId];
 
     default:

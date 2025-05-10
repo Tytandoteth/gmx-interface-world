@@ -1,0 +1,34 @@
+{
+  "name": "cloudflare-oracle-keeper",
+  "version": "1.0.0",
+  "description": "RedStone Oracle Keeper service optimized for Cloudflare Workers",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "redstone",
+    "oracle",
+    "price-feed",
+    "gmx",
+    "cloudflare",
+    "workers"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@redstone-finance/evm-connector": "^0.4.16",
+    "ethers": "^6.7.1",
+    "itty-router": "^4.0.23"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20230821.0",
+    "@types/node": "^20.5.9",
+    "typescript": "^5.0.4",
+    "vitest": "^0.34.4",
+    "wrangler": "^3.6.0"
+  }
+}

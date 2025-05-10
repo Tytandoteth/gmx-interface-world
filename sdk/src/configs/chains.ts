@@ -1,4 +1,5 @@
 import { arbitrum, avalanche, avalancheFuji, Chain } from "viem/chains";
+import { defineChain } from "viem";
 
 export const AVALANCHE = 43114;
 export const AVALANCHE_FUJI = 43113;
@@ -6,14 +7,20 @@ export const ARBITRUM = 42161;
 export const BSС_MAINNET = 56;
 export const BSС_TESTNET = 97;
 export const ETH_MAINNET = 1;
+export const WORLD = 424;
 
-export const SUPPORTED_CHAIN_IDS = [ARBITRUM, AVALANCHE];
+export const SUPPORTED_CHAIN_IDS = [ARBITRUM, AVALANCHE, WORLD];
 export const SUPPORTED_CHAIN_IDS_DEV = [...SUPPORTED_CHAIN_IDS, AVALANCHE_FUJI];
+
+// Special flags for chains in development
+export const DEVELOPMENT_CHAINS = [WORLD, AVALANCHE_FUJI];
+export const isChainInDevelopment = (chainId: number): boolean => DEVELOPMENT_CHAINS.includes(chainId);
 
 export const HIGH_EXECUTION_FEES_MAP: Record<number, number> = {
   [ARBITRUM]: 5, // 5 USD
   [AVALANCHE]: 5, // 5 USD
   [AVALANCHE_FUJI]: 5, // 5 USD
+  [WORLD]: 5, // 5 USD
 };
 
 // added to maxPriorityFeePerGas
@@ -29,6 +36,7 @@ export const MAX_FEE_PER_GAS_MAP: Record<number, bigint> = {
 export const GAS_PRICE_PREMIUM_MAP: Record<number, bigint> = {
   [ARBITRUM]: 0n,
   [AVALANCHE]: 6000000000n, // 6 gwei
+  [WORLD]: 1000000000n, // 1 gwei
 };
 
 /*
@@ -38,12 +46,14 @@ export const MAX_PRIORITY_FEE_PER_GAS_MAP: Record<number, bigint | undefined> = 
   [ARBITRUM]: 1500000000n,
   [AVALANCHE]: 1500000000n,
   [AVALANCHE_FUJI]: 1500000000n,
+  [WORLD]: 1500000000n,
 };
 
 export const EXCESSIVE_EXECUTION_FEES_MAP: Record<number, number> = {
   [ARBITRUM]: 10, // 10 USD
   [AVALANCHE]: 10, // 10 USD
   [AVALANCHE_FUJI]: 10, // 10 USD
+  [WORLD]: 10, // 10 USD
 };
 
 // added to gasPrice
@@ -67,10 +77,29 @@ export const GAS_PRICE_BUFFER_MAP: Record<number, bigint> = {
   [ARBITRUM]: 2000n, // 20%
 };
 
+// Define World chain
+export const worldChain = defineChain({
+  id: WORLD,
+  name: 'World',
+  nativeCurrency: {
+    decimals: 18,
+    name: 'World',
+    symbol: 'WLD',
+  },
+  rpcUrls: {
+    default: { http: ['https://rpc.world-chain.org'] },
+    public: { http: ['https://rpc.world-chain.org'] },
+  },
+  blockExplorers: {
+    default: { name: 'WorldScan', url: 'https://explorer.world-chain.org' },
+  },
+})
+
 const CHAIN_BY_CHAIN_ID: Record<number, Chain> = {
   [AVALANCHE_FUJI]: avalancheFuji,
   [ARBITRUM]: arbitrum,
   [AVALANCHE]: avalanche,
+  [WORLD]: worldChain,
 };
 
 export const getChain = (chainId: number): Chain => {
@@ -106,5 +135,9 @@ export const EXECUTION_FEE_CONFIG_V2: {
   [ARBITRUM]: {
     shouldUseMaxPriorityFeePerGas: false,
     defaultBufferBps: 3000, // 30%
+  },
+  [WORLD]: {
+    shouldUseMaxPriorityFeePerGas: true,
+    defaultBufferBps: 1000, // 10%
   },
 };

@@ -1,8 +1,8 @@
 import { ClientConfig, createPublicClient, http } from "viem";
 import type { BatchOptions } from "viem/_types/clients/transports/http";
-import { arbitrum, avalanche, avalancheFuji } from "viem/chains";
+import { arbitrum, avalanche, avalancheFuji, mainnet } from "viem/chains";
 
-import { ARBITRUM, AVALANCHE, AVALANCHE_FUJI } from "config/chains";
+import { ARBITRUM, AVALANCHE, AVALANCHE_FUJI, WORLD } from "config/chains";
 import { isWebWorker } from "config/env";
 import {
   MulticallErrorEvent,
@@ -27,6 +27,17 @@ const CHAIN_BY_CHAIN_ID = {
   [AVALANCHE_FUJI]: avalancheFuji,
   [ARBITRUM]: arbitrum,
   [AVALANCHE]: avalanche,
+  // Use mainnet as a base for World chain (same EVM parameters)
+  [WORLD]: {
+    ...mainnet,
+    id: WORLD,
+    name: 'World',
+    nativeCurrency: {
+      name: 'World',
+      symbol: 'WLD',
+      decimals: 18,
+    },
+  },
 };
 
 export type MulticallProviderUrls = {
@@ -41,6 +52,18 @@ const BATCH_CONFIGS: Record<
     client: ClientConfig["batch"];
   }
 > = {
+  [WORLD]: {
+    http: {
+      batchSize: 0, // disable batches for World chain
+      wait: 0,
+    },
+    client: {
+      multicall: {
+        batchSize: 1024,
+        wait: 0,
+      },
+    },
+  },
   [ARBITRUM]: {
     http: {
       batchSize: 0, // disable batches, here batchSize is the number of eth_calls in a batch

@@ -1,3 +1,35 @@
+# GMX Interface - World Chain Edition
+
+This project is a fork of the official [GMX Interface](https://github.com/gmx-io/gmx-interface) modified to support World Chain. It integrates World Chain into the GMX trading interface, allowing users to interact with GMX markets deployed on the World Chain network.
+
+## World Chain Integration
+
+This fork includes the following World Chain-specific features:
+
+- **Chain Configuration**: Added World Chain (chain ID 1337) to the supported networks list
+- **Token Support**: Added WLD/USD and ETH/USD price feed integration via RedStone oracles
+- **Market Configuration**: Customized GMX markets for World Chain with proper addresses
+- **Oracle Keeper**: Integration with custom RedStone Oracle Keeper for reliable price feeds
+
+## Project Architecture
+
+The World Chain GMX trading platform consists of three main repositories:
+
+1. **[GMX Interface World](https://github.com/Tytandoteth/gmx-interface-world)** (this repository)
+   - Frontend application for GMX trading on World Chain
+   - Connects to the Oracle Keeper for price data
+   - Configured with World Chain token addresses and market settings
+
+2. **[RedStone Oracle Keeper](https://github.com/Tytandoteth/redstone-oracle-keeper)**
+   - Cloudflare Worker-based price oracle service (deployed at https://oracle-keeper.kevin8396.workers.dev)
+   - Provides `/prices` and `/health` endpoints for the GMX interface
+   - Features automatic failover to fallback data when blockchain access fails
+
+3. **[GMX Contracts World](https://github.com/Tytandoteth/gmx-contracts-world)**
+   - Smart contracts for the GMX protocol adapted for World Chain
+   - Integrated with RedStone price feeds
+   - Supports WLD/USD and ETH/USD trading pairs
+
 # Getting Started
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).

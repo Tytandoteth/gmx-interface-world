@@ -2,7 +2,7 @@ import mapValues from "lodash/mapValues";
 
 import { isDevelopment } from "config/env";
 
-import { ARBITRUM, AVALANCHE, AVALANCHE_FUJI } from "./chains";
+import { ARBITRUM, AVALANCHE, AVALANCHE_FUJI, WORLD } from "./chains";
 import { MARKETS } from "./static/markets";
 
 export * from "./static/markets";
@@ -48,6 +48,7 @@ export const GLV_MARKETS: {
       shortening: "HC",
     },
   },
+  [WORLD]: {}, // Empty configuration for World chain
 };
 
 export function getMarketUiConfig(chainId: number, marketAddress: string) {

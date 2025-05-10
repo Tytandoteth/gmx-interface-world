@@ -1,0 +1,11 @@
+.RedstoneTestPage {
+  min-height: 100vh;
+  background: #101124;
+}
+
+.RedstoneTestPage-container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding-top: 3.1rem;
+}

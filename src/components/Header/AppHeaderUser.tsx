@@ -4,7 +4,7 @@ import cx from "classnames";
 import { useCallback } from "react";
 import { useRouteMatch } from "react-router-dom";
 
-import { ARBITRUM, AVALANCHE, AVALANCHE_FUJI, getChainName } from "config/chains";
+import { ARBITRUM, AVALANCHE, AVALANCHE_FUJI, WORLD, getChainName } from "config/chains";
 import { isDevelopment } from "config/env";
 import { getIcon } from "config/icons";
 import { useChainId } from "lib/chains";
@@ -46,6 +46,12 @@ const NETWORK_OPTIONS = [
     value: AVALANCHE,
     icon: getIcon(AVALANCHE, "network"),
     color: "#E841424D",
+  },
+  {
+    label: getChainName(WORLD),
+    value: WORLD,
+    icon: getIcon(ARBITRUM, "network"), // Using Arbitrum icon as fallback
+    color: "#23a55a", // World brand color
   },
 ];
 

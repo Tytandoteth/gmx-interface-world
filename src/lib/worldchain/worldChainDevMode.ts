@@ -24,7 +24,7 @@ export const WorldChainConfig = {
     // Enable RedStone integration
     enabled: true,
     // RedStone price feed contract address
-    priceFeedAddress: process.env.VITE_APP_WORLD_REDSTONE_PRICE_FEED || "0x163f8c2467924be0ae7b5347228cabf260318753",
+    priceFeedAddress: import.meta.env.VITE_APP_WORLD_REDSTONE_PRICE_FEED as string || "0x163f8c2467924be0ae7b5347228cabf260318753",
     // Default tokens to track from RedStone
     trackedTokens: ["WLD", "ETH", "BTC", "USDC", "USDT"],
   },

@@ -1,0 +1,23 @@
+{
+  "name": "gmx-redstone-oracle-keeper",
+  "version": "1.0.0",
+  "description": "Oracle Keeper service for GMX-RedStone integration",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "dependencies": {
+    "ethers": "^6.12.1",
+    "@redstone-finance/evm-connector": "^0.8.0",
+    "@redstone-finance/sdk": "^0.8.0",
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "winston": "^3.11.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}

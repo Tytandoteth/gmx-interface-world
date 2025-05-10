@@ -44,7 +44,7 @@
     }
   },
   "scripts": {
-    "prebuild": "yarn tsx scripts/prebuild",
+    "prebuild": "npx tsx scripts/prebuild",
     "prepare": "ts-patch install -s",
     "test": "vitest",
     "test:ci": "vitest run",

@@ -1,0 +1,25 @@
+name = "oracle-keeper"
+main = "src/index.ts"
+compatibility_date = "2023-09-04"
+compatibility_flags = ["nodejs_compat"]
+
+# Environment variables
+[vars]
+RPC_URL = "https://sleek-little-leaf.worldchain-mainnet.quiknode.pro/49cff082c3f8db6bc60bd05d7256d2fda94a42cd/"
+CHAIN_ID = "1337"
+REDSTONE_PRICE_FEED_ADDRESS = "0x345bc48E1370fa399D0A6611669726aAC676DBB3"
+SUPPORTED_TOKENS = "WLD,ETH,BTC"
+PRICE_CACHE_DURATION_MS = "30000"
+
+# KV Namespace for storing price data
+kv_namespaces = [
+  { binding = "PRICE_CACHE", id = "YOUR_KV_NAMESPACE_ID", preview_id = "YOUR_PREVIEW_KV_NAMESPACE_ID" }
+]
+
+# Cron Trigger for price updates
+[triggers]
+crons = ["*/30 * * * *"] # Run every 30 seconds
+
+# Dev options for local testing
+[dev]
+port = 3002

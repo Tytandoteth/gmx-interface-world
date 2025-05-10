@@ -4,6 +4,8 @@ import { Suspense, lazy, useEffect, useRef } from "react";
 import { Redirect, Route, Switch } from "react-router-dom";
 import type { Address } from "viem";
 
+import Debug from "components/Debug/Debug";
+
 import { ARBITRUM } from "config/chains";
 import { getContract } from "config/contracts";
 import { isDevelopment } from "config/env";
@@ -40,6 +42,7 @@ import ReferralsTier from "pages/ReferralsTier/ReferralsTier";
 import Stats from "pages/Stats/Stats";
 import { SyntheticsPage } from "pages/SyntheticsPage/SyntheticsPage";
 import { SyntheticsStats } from "pages/SyntheticsStats/SyntheticsStats";
+import RedstoneTestPage from "pages/RedstoneTestPage";
 import { abis } from "sdk/abis";
 
 const LazyUiPage = lazy(() => import("pages/UiPage/UiPage"));
@@ -138,6 +141,9 @@ export function MainRoutes({ openSettings }: { openSettings: () => void }) {
       <Route exact path="/ecosystem">
         <Ecosystem />
       </Route>
+      <Route exact path="/redstone-test">
+        <RedstoneTestPage />
+      </Route>
       <Route path="/leaderboard/">
         <SyntheticsStateContextProvider skipLocalReferralCode pageType="leaderboard">
           <LeaderboardPage />
@@ -210,6 +216,14 @@ export function MainRoutes({ openSettings }: { openSettings: () => void }) {
       )}
       <Route path="/parsetx/:network/:tx">
         <ParseTransactionPage />
+      </Route>
+
+      <Route exact path="/leaderboard/competition/:id">
+        <CompetitionRedirect />
+      </Route>
+        
+      <Route exact path="/debug">
+        <Debug />
       </Route>
 
       <Route path="*">

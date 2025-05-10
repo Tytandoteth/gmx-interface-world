@@ -1,4 +1,4 @@
-import { ARBITRUM, AVALANCHE, AVALANCHE_FUJI, ETH_MAINNET } from "config/chains";
+import { ARBITRUM, AVALANCHE, AVALANCHE_FUJI, ETH_MAINNET, WORLD } from "config/chains";
 
 import { createClient } from "./utils";
 
@@ -15,10 +15,12 @@ export const avalancheFujiReferralsGraphClient = createClient(AVALANCHE_FUJI, "r
 export const arbitrumSyntheticsStatsClient = createClient(ARBITRUM, "syntheticsStats");
 export const avalancheSyntheticsStatsClient = createClient(AVALANCHE, "syntheticsStats");
 export const avalancheFujiSyntheticsStatsClient = createClient(AVALANCHE_FUJI, "syntheticsStats");
+export const worldSyntheticsStatsClient = createClient(WORLD, "syntheticsStats");
 
 export const arbitrumSubsquidClient = createClient(ARBITRUM, "subsquid");
 export const avalancheSubsquidClient = createClient(AVALANCHE, "subsquid");
 export const avalancheFujiSubsquidClient = createClient(AVALANCHE_FUJI, "subsquid");
+export const worldSubsquidClient = createClient(WORLD, "subsquid");
 
 export function getSyntheticsGraphClient(chainId: number) {
   if (chainId === ARBITRUM) {
@@ -31,6 +33,10 @@ export function getSyntheticsGraphClient(chainId: number) {
 
   if (chainId === AVALANCHE_FUJI) {
     return avalancheFujiSyntheticsStatsClient;
+  }
+
+  if (chainId === WORLD) {
+    return worldSyntheticsStatsClient;
   }
 
   return null;
@@ -49,6 +55,10 @@ export function getSubsquidGraphClient(chainId: number) {
     return avalancheFujiSubsquidClient;
   }
 
+  if (chainId === WORLD) {
+    return worldSubsquidClient;
+  }
+
   return null;
 }
 
@@ -59,6 +69,8 @@ export function getGmxGraphClient(chainId: number) {
     return avalancheGraphClient;
   } else if (chainId === AVALANCHE_FUJI) {
     return null;
+  } else if (chainId === WORLD) {
+    return null; // No GMX graph client for World chain yet
   }
 
   throw new Error(`Unsupported chain ${chainId}`);
@@ -71,6 +83,8 @@ export function getReferralsGraphClient(chainId) {
     return avalancheReferralsGraphClient;
   } else if (chainId === AVALANCHE_FUJI) {
     return avalancheFujiReferralsGraphClient;
+  } else if (chainId === WORLD) {
+    return null; // No referrals graph client for World chain yet
   }
   throw new Error(`Unsupported chain ${chainId}`);
 }

@@ -2,7 +2,7 @@
   This files is used to pre-build data during the build process.
   Avoid adding client-side code here, as it can break the build process.
 */
-import { ARBITRUM, AVALANCHE, AVALANCHE_FUJI } from "./chains";
+import { ARBITRUM, AVALANCHE, AVALANCHE_FUJI, WORLD } from "./chains";
 
 export const SWAP_GRAPH_MAX_MARKETS_PER_TOKEN = 5;
 
@@ -18,6 +18,22 @@ export type MarketConfig = {
   When adding new markets, please add them also to the end of the list in ./src/configs/static/sortedMarkets.ts
 */
 export const MARKETS: Record<number, Record<string, MarketConfig>> = {
+  [WORLD]: {
+    // WLD/USD [WLD-USDC]
+    "0x99A49AaA79b648ee24e85c4eb3A1C9c429A95652": {
+      marketTokenAddress: "0x99A49AaA79b648ee24e85c4eb3A1C9c429A95652", // WLD/USD market token address
+      indexTokenAddress: "0x99A49AaA79b648ee24e85c4eb3A1C9c429A95652", // WLD token address
+      longTokenAddress: "0x99A49AaA79b648ee24e85c4eb3A1C9c429A95652", // WLD token address
+      shortTokenAddress: "0x4D8826Ae25866b72FF5b756a2F7E203D5b92Ceb0".toLowerCase(), // USDC token address on World Chain
+    },
+    // WETH/USD [WETH-USDC]
+    "0xE1a9E792851b22A808639cf8e75D0A4025333f4B": {
+      marketTokenAddress: "0xE1a9E792851b22A808639cf8e75D0A4025333f4B", // ETH/USD market token address
+      indexTokenAddress: "0xE1a9E792851b22A808639cf8e75D0A4025333f4B", // WETH token address
+      longTokenAddress: "0xE1a9E792851b22A808639cf8e75D0A4025333f4B", // WETH token address
+      shortTokenAddress: "0x4D8826Ae25866b72FF5b756a2F7E203D5b92Ceb0".toLowerCase(), // USDC token address on World Chain
+    },
+  },
   [ARBITRUM]: {
     // BTC/USD [WBTC.e-USDC]
     "0x47c031236e19d024b42f8AE6780E44A573170703": {
