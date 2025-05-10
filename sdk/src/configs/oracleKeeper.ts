@@ -1,7 +1,7 @@
 import random from "lodash/random";
 import sample from "lodash/sample";
 
-import { ARBITRUM, AVALANCHE, AVALANCHE_FUJI } from "./chains";
+import { ARBITRUM, AVALANCHE, AVALANCHE_FUJI, WORLD } from "./chains";
 
 const ORACLE_KEEPER_URLS: Record<number, string[]> = {
   [ARBITRUM]: ["https://arbitrum-api.gmxinfra.io", "https://arbitrum-api.gmxinfra2.io"],
@@ -9,12 +9,28 @@ const ORACLE_KEEPER_URLS: Record<number, string[]> = {
   [AVALANCHE]: ["https://avalanche-api.gmxinfra.io", "https://avalanche-api.gmxinfra2.io"],
 
   [AVALANCHE_FUJI]: ["https://synthetics-api-avax-fuji-upovm.ondigitalocean.app"],
+  
+  // Custom Oracle Keeper for World chain using the deployed Cloudflare Worker
+  [WORLD]: ["https://oracle-keeper.kevin8396.workers.dev"],
 };
 
+// Special handling for World chain to ensure it always has a valid Oracle Keeper URL
+const WORLD_ORACLE_KEEPER_URL = "https://oracle-keeper.kevin8396.workers.dev";
+
 export function getOracleKeeperUrl(chainId: number, index: number) {
+  // Special case for World chain - always use the local Oracle Keeper
+  if (chainId === WORLD) {
+    return WORLD_ORACLE_KEEPER_URL;
+  }
+  
   const urls = ORACLE_KEEPER_URLS[chainId];
 
-  if (!urls.length) {
+  if (!urls || !urls.length) {
+    console.warn(`No oracle keeper urls for chain ${chainId}, using fallback`);
+    // If we're requesting a URL for World chain but it's not in the config, return the default
+    if (chainId === WORLD) {
+      return WORLD_ORACLE_KEEPER_URL;
+    }
     throw new Error(`No oracle keeper urls for chain ${chainId}`);
   }
 
