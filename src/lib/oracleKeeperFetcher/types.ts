@@ -1,7 +1,41 @@
 import type { Address } from "viem";
 
 import { UserFeedback } from "domain/synthetics/userFeedback";
-import { FromNewToOldArray, Bar } from "domain/tradingview/types";
+import { FromNewToOldArray as ImportedFromNewToOldArray, Bar as ImportedBar } from "domain/tradingview/types";
+
+// Re-export imported types to make them available to other modules
+export type FromNewToOldArray<T> = ImportedFromNewToOldArray<T>;
+export type Bar = ImportedBar;
+
+/**
+ * Enhanced health status response for Oracle Keeper
+ */
+export type TokenPriceStatus = {
+  symbol: string;
+  available: boolean;
+  latestPrice?: number;
+  lastUpdated?: number;
+  source?: string;
+  error?: string;
+};
+
+export type OracleKeeperHealthStatus = {
+  isHealthy: boolean;
+  apiLatency: number;
+  timestamp: number;
+  mode: 'live' | 'fallback' | 'error';
+  endpoint: string;
+  version?: string;
+  prices: TokenPriceStatus[];
+  gmxContract: {
+    connected: boolean;
+    address?: string;
+    chainId?: number;
+    error?: string;
+  };
+  uptime?: number;
+  errors?: string[];
+};
 
 export type EventPayload = {
   isError: boolean;

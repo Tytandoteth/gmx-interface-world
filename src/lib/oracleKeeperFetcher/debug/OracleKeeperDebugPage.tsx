@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import styled from "styled-components";
 
-import { WORLD } from "sdk/contracts/config/chainIds";
+import { WORLD } from "sdk/configs/chains";
 import { OracleKeeperDebugger, DebugLevel } from "./oracleKeeperDebugger";
 import { DEFAULT_ORACLE_KEEPER_URL } from "../oracleKeeperConstants";
 import { OracleKeeperStatus } from "./OracleKeeperStatus";
@@ -210,7 +210,7 @@ const tests = [
     id: "cache",
     name: "Cache Functionality",
     description: "Tests the caching mechanism including TTL and stale cache recovery.",
-    run: (oracleDebugger: OracleKeeperDebugger): Promise<boolean> => oracleDebugger.testCache()
+    run: (oracleDebugger: OracleKeeperDebugger): Promise<boolean> => Promise.resolve(oracleDebugger.testCache())
   },
   {
     id: "fetchWithRetry",

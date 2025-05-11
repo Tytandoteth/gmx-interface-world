@@ -15,6 +15,7 @@ export const WorldChainConfig = {
     ETH: 3550.25,     // Ethereum
     BTC: 69420.50,    // Bitcoin
     USDT: 1.00,       // Tether stablecoin
+    MAG: 2.50,        // Magnate token
     // Add fallback for any token
     DEFAULT: 1.00,    // Default price for any other token
   },
@@ -26,7 +27,7 @@ export const WorldChainConfig = {
     // RedStone price feed contract address
     priceFeedAddress: import.meta.env.VITE_APP_WORLD_REDSTONE_PRICE_FEED as string || "0x163f8c2467924be0ae7b5347228cabf260318753",
     // Default tokens to track from RedStone
-    trackedTokens: ["WLD", "ETH", "BTC", "USDC", "USDT"],
+    trackedTokens: ["WLD", "ETH", "BTC", "USDC", "USDT", "MAG"],
   },
   
   // Mock market configuration for the interface

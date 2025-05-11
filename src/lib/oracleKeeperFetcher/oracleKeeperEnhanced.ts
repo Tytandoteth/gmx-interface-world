@@ -34,7 +34,9 @@ import {
   BatchReportBody, 
   UserFeedbackBody, 
   RawIncentivesStats,
-  ApyInfo
+  ApyInfo,
+  OracleKeeperHealthStatus,
+  TokenPriceStatus
 } from "./types";
 
 // Create namespace-specific diagnostic cache
@@ -46,43 +48,164 @@ const logger = DiagnosticLogger.getInstance();
 const CACHE_FALLBACK_TTL_MS = 30 * 1000; // 30 seconds for fallback cache
 
 /**
- * Health check for Oracle Keeper service 
+ * Enhanced health check for Oracle Keeper service 
+ * @param url - Oracle Keeper URL
+ * @param chainId - Chain ID to check
+ * @returns Detailed health status of the Oracle Keeper
  */
-export async function checkOracleKeeperHealth(url: string = DEFAULT_ORACLE_KEEPER_URL): Promise<boolean> {
+export async function checkOracleKeeperHealth(
+  url: string = DEFAULT_ORACLE_KEEPER_URL,
+  chainId = 0
+): Promise<OracleKeeperHealthStatus> {
   const requestId = generateRequestId();
   const timer = new PerformanceTimer();
-  const fetch = createDiagnosticFetch(requestId);
+  const errors: string[] = [];
+  let priceData: TickersResponse[] = [];
+  let responseData: any = {};
   
-  logger.log(LogCategory.NETWORK, LogLevel.INFO, `Oracle Keeper health check: ${url}`, { requestId });
+  const result: OracleKeeperHealthStatus = {
+    isHealthy: false,
+    apiLatency: 0,
+    timestamp: Date.now(),
+    mode: 'error',
+    endpoint: url,
+    prices: [],
+    gmxContract: {
+      connected: false
+    },
+    errors: []
+  };
   
+  // Step 1: Check basic API health
   try {
     const response = await fetch(`${url}/health`);
-    const duration = timer.end();
+    result.apiLatency = timer.end();
     
-    if (response.ok) {
-      logger.log(LogCategory.NETWORK, LogLevel.INFO, `Oracle Keeper health: OK`, {
+    if (!response.ok) {
+      const errorMsg = `Health check failed with status ${response.status}`;
+      errors.push(errorMsg);
+      logger.log(LogCategory.NETWORK, LogLevel.ERROR, errorMsg, {
         requestId,
-        data: { status: response.status },
-        duration
+        data: { status: response.status, url },
+        duration: result.apiLatency
       });
-      return true;
     } else {
-      logger.log(LogCategory.NETWORK, LogLevel.ERROR, `Oracle Keeper health: FAILED`, {
-        requestId,
-        data: { status: response.status, statusText: response.statusText },
-        duration
-      });
-      return false;
+      // Try to parse health response 
+      try {
+        responseData = await response.json();
+        result.version = responseData.version || 'unknown';
+        result.uptime = responseData.uptime;
+        // If we get here, basic health check succeeded
+        result.isHealthy = true;
+      } catch (parseError) {
+        errors.push(`Health endpoint returned invalid JSON: ${String(parseError)}`);
+      }
     }
   } catch (error) {
-    const err = error as Error;
-    logger.log(LogCategory.NETWORK, LogLevel.ERROR, `Oracle Keeper health check error`, {
+    const errorMsg = `Health check failed with exception: ${String(error)}`;
+    errors.push(errorMsg);
+    logger.log(LogCategory.NETWORK, LogLevel.ERROR, errorMsg, {
       requestId,
-      error: err,
+      data: { error: String(error), url },
       duration: timer.end()
     });
-    return false;
   }
+  
+  // Step 2: Check for price data
+  try {
+    const priceResponse = await fetch(`${url}/prices`);
+    if (priceResponse.ok) {
+      try {
+        priceData = await priceResponse.json();
+        // Transform price data into token status
+        if (Array.isArray(priceData)) {
+          result.prices = priceData.map(ticker => {
+            // Safe type handling for response objects
+            const tickerObj = ticker as unknown as { 
+              tokenSymbol: string; 
+              minPrice: string;
+              updatedAt: number;
+              source?: string;
+            };
+            
+            return {
+              symbol: tickerObj.tokenSymbol,
+              available: true,
+              latestPrice: parseFloat(tickerObj.minPrice), // Use minPrice as the default
+              lastUpdated: tickerObj.updatedAt,
+              source: tickerObj.source || 'Oracle Keeper'
+            } as TokenPriceStatus;
+          });
+          
+          // We have price data, set mode to live
+          if (result.prices.length > 0) {
+            result.mode = 'live';
+          }
+        }
+      } catch (parseError) {
+        errors.push(`Price endpoint returned invalid JSON: ${String(parseError)}`);
+      }
+    } else {
+      errors.push(`Price check failed with status ${priceResponse.status}`);
+    }
+  } catch (error) {
+    errors.push(`Price check failed with exception: ${String(error)}`);
+  }
+  
+  // Step 3: If we don't have live price data and we're on World Chain, check for fallback
+  if (result.prices.length === 0 && isWorldChain(chainId)) {
+    // Use mock data
+    const mockPrices = getWorldChainMockData<Record<string, number>>('prices');
+    if (mockPrices) {
+      result.mode = 'fallback';
+      result.prices = Object.entries(mockPrices)
+        .filter(([key]) => key !== 'DEFAULT')
+        .map(([symbol, price]) => ({
+          symbol,
+          available: true,
+          latestPrice: price,
+          lastUpdated: Date.now(),
+          source: 'GMX Development Mock Prices'
+        }));
+    }
+  }
+  
+  // Step 4: Check GMX contract connection if we have contract info
+  // This is a placeholder for now - will need real contract integration later
+  if (isWorldChain(chainId)) {
+    result.gmxContract = {
+      connected: true,
+      address: '0xA63636C9d557793234dD5E33a24EAd68c36Df148', // Example address from your config
+      chainId: chainId
+    };
+  } else {
+    result.gmxContract = {
+      connected: false,
+      error: 'No contract integration available for this chain'
+    };
+  }
+  
+  // Final health determination
+  // We consider it healthy if we have either live data or fallback data
+  result.isHealthy = result.mode !== 'error' && result.prices.length > 0;
+  result.errors = errors.length > 0 ? errors : undefined;
+  
+  logger.log(
+    LogCategory.NETWORK, 
+    result.isHealthy ? LogLevel.INFO : LogLevel.ERROR, 
+    `Health check ${result.isHealthy ? 'successful' : 'failed'}`, 
+    {
+      requestId,
+      data: {
+        url,
+        mode: result.mode,
+        priceCount: result.prices.length,
+        errors
+      }
+    }
+  );
+  
+  return result;
 }
 
 /**

@@ -10,7 +10,7 @@ export {
   OracleKeeperDebugger, 
   DebugLevel, 
   DebugModule,
-  debugger as defaultDebugger,
+  oracleDebugger as defaultDebugger,
   debugOracleKeeper 
 } from './oracleKeeperDebugger';
 
