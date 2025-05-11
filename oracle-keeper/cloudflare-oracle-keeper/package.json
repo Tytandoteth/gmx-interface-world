@@ -20,12 +20,12 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@redstone-finance/evm-connector": "^0.4.16",
+    "@redstone-finance/evm-connector": "^0.4.0",
     "ethers": "^6.7.1",
     "itty-router": "^4.0.23"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20230821.0",
+    "@cloudflare/workers-types": "^4.20250510.0",
     "@types/node": "^20.5.9",
     "typescript": "^5.0.4",
     "vitest": "^0.34.4",

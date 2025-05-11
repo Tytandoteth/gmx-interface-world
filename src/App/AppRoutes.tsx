@@ -1,7 +1,8 @@
 import { ethers } from "ethers";
 import { useCallback, useEffect, useState } from "react";
-import { useHistory, useLocation } from "react-router-dom";
+import { useHistory, useLocation, Route } from "react-router-dom";
 import { ToastContainer, cssTransition } from "react-toastify";
+import DebugDashboard from "../debug";
 import { Hash } from "viem";
 import { useDisconnect } from "wagmi";
 

@@ -42,7 +42,7 @@ export function WorldChainDevBanner(): JSX.Element | null {
           
           {!mockDataAvailable && (
             <div className="error-message">
-              <p>Oracle Keeper is offline. Please ensure the service is running at: <code>http://localhost:3001</code></p>
+              <p>Oracle Keeper is offline. Please ensure the service is running at: <code>https://oracle-keeper.kevin8396.workers.dev</code></p>
               <p>Error: {oracleData.error?.message || 'Connection error'}</p>
             </div>
           )}

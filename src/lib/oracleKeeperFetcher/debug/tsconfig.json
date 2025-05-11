@@ -1,0 +1,14 @@
+{
+  "extends": "../../../../tsconfig.json",
+  "compilerOptions": {
+    "composite": true,
+    "baseUrl": "../../../",
+    "paths": {
+      "config/*": ["config/*"],
+      "sdk/*": ["sdk/*"],
+      "lib/*": ["lib/*"],
+      "components/*": ["components/*"]
+    }
+  },
+  "include": ["./**/*.ts", "./**/*.tsx", "../**/*.ts", "../**/*.tsx"]
+}

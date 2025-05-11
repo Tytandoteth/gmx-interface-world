@@ -1,10 +1,8 @@
 import { Trans } from "@lingui/macro";
 import { Provider, ethers } from "ethers";
-import { Suspense, lazy, useEffect, useRef } from "react";
+import { useEffect, useRef, Suspense, lazy } from "react";
 import { Redirect, Route, Switch } from "react-router-dom";
 import type { Address } from "viem";
-
-import Debug from "components/Debug/Debug";
 
 import { ARBITRUM } from "config/chains";
 import { getContract } from "config/contracts";
@@ -14,6 +12,10 @@ import { subscribeToV1Events } from "context/WebsocketContext/subscribeToEvents"
 import { useWebsocketProvider } from "context/WebsocketContext/WebsocketContextProvider";
 import { useChainId } from "lib/chains";
 import { useHasLostFocus } from "lib/useHasPageLostFocus";
+import { abis } from "sdk/abis";
+
+import Debug from "components/Debug/Debug";
+
 import { AccountDashboard } from "pages/AccountDashboard/AccountDashboard";
 import { buildAccountDashboardUrl } from "pages/AccountDashboard/buildAccountDashboardUrl";
 import { VERSION_QUERY_PARAM } from "pages/AccountDashboard/constants";
@@ -37,13 +39,13 @@ import PageNotFound from "pages/PageNotFound/PageNotFound";
 import { ParseTransactionPage } from "pages/ParseTransaction/ParseTransaction";
 import PositionsOverview from "pages/PositionsOverview/PositionsOverview";
 import { PriceImpactRebatesStatsPage } from "pages/PriceImpactRebatesStats/PriceImpactRebatesStats";
+import RedstoneTestPage from "pages/RedstoneTestPage";
 import Referrals from "pages/Referrals/Referrals";
 import ReferralsTier from "pages/ReferralsTier/ReferralsTier";
 import Stats from "pages/Stats/Stats";
 import { SyntheticsPage } from "pages/SyntheticsPage/SyntheticsPage";
 import { SyntheticsStats } from "pages/SyntheticsStats/SyntheticsStats";
-import RedstoneTestPage from "pages/RedstoneTestPage";
-import { abis } from "sdk/abis";
+import { validatePaths } from "../debug/validation";
 
 const LazyUiPage = lazy(() => import("pages/UiPage/UiPage"));
 export const UiPage = () => <Suspense fallback={<Trans>Loading...</Trans>}>{<LazyUiPage />}</Suspense>;
@@ -52,6 +54,19 @@ export function MainRoutes({ openSettings }: { openSettings: () => void }) {
   const exchangeRef = useRef<any>();
   const { hasV1LostFocus } = useHasLostFocus();
   const { chainId } = useChainId();
+  
+  // Validate import paths only in development
+  useEffect(() => {
+    if (isDevelopment) {
+      // Check if Debug component is properly loaded
+      const debugComponentType = typeof Debug;
+      // eslint-disable-next-line no-console
+      console.log("[PATH_DEBUG] Available Debug components:", debugComponentType);
+      
+      // Run path validation
+      validatePaths();
+    }
+  }, []);
 
   const { wsProvider } = useWebsocketProvider();
 
@@ -148,6 +163,11 @@ export function MainRoutes({ openSettings }: { openSettings: () => void }) {
         <SyntheticsStateContextProvider skipLocalReferralCode pageType="leaderboard">
           <LeaderboardPage />
         </SyntheticsStateContextProvider>
+      </Route>
+      
+      {/* Use the existing Debug component */}
+      <Route path="/debug">
+        <Debug />
       </Route>
       <Route exact path="/competitions/">
         <SyntheticsStateContextProvider skipLocalReferralCode pageType="competitions">

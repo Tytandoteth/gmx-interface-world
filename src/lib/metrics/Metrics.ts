@@ -99,7 +99,30 @@ export class Metrics {
     }
 
     if (!this.fetcher) {
+      // In development, don't reject with error but instead return a mock successful response
+      if (isDevelopment()) {
+        if (this.debug) {
+          // eslint-disable-next-line no-console
+          console.log("Metrics: Development mode - metrics not sent (fetcher not initialized)");
+        }
+        return Promise.resolve(new Response(JSON.stringify({ success: true, development: true }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        }));
+      }
       return Promise.reject(new Error("Metrics: fetcher is not initialized"));
+    }
+
+    // In development, we can optionally bypass actual sending to reduce console noise
+    if (isDevelopment()) {
+      if (this.debug) {
+        // eslint-disable-next-line no-console
+        console.log("Metrics: Development mode - metrics would be sent", { items });
+      }
+      return Promise.resolve(new Response(JSON.stringify({ success: true, development: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      }));
     }
 
     return this.fetcher.fetchPostBatchReport({ items }, this.debug);

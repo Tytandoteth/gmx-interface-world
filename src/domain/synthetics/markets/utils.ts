@@ -213,12 +213,23 @@ export function getMinPriceImpactMarket(
 export function getTotalClaimableFundingUsd(markets: MarketInfo[]) {
   return markets.reduce((acc, market) => {
     const { longToken, shortToken } = market;
+    
+    // Skip if tokens are not properly defined
+    if (!longToken || !shortToken) {
+      return acc;
+    }
 
     const amountLong = market.claimableFundingAmountLong;
     const amountShort = market.claimableFundingAmountShort;
 
-    const usdLong = convertToUsd(amountLong, longToken.decimals, longToken.prices.minPrice);
-    const usdShort = convertToUsd(amountShort, shortToken.decimals, shortToken.prices.minPrice);
+    // Check if tokens have the required properties before accessing them
+    const usdLong = longToken.decimals !== undefined && longToken.prices?.minPrice !== undefined
+      ? convertToUsd(amountLong, longToken.decimals, longToken.prices.minPrice)
+      : 0n;
+    
+    const usdShort = shortToken.decimals !== undefined && shortToken.prices?.minPrice !== undefined
+      ? convertToUsd(amountShort, shortToken.decimals, shortToken.prices.minPrice)
+      : 0n;
 
     return acc + (usdLong ?? 0n) + (usdShort ?? 0n);
   }, 0n);

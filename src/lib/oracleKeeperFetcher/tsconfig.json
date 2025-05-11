@@ -1,0 +1,29 @@
+{
+  "extends": "../../../tsconfig.json",
+  "compilerOptions": {
+    "composite": true,
+    "baseUrl": "../../../src",
+    "paths": {
+      "sdk": ["../sdk/src/index.ts"],
+      "sdk/*": ["../sdk/src/*"],
+      "config/*": ["config/*"],
+      "domain/*": ["domain/*"],
+      "lib/*": ["lib/*"]
+    },
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "noImplicitThis": true,
+    "alwaysStrict": true
+  },
+  "include": [
+    "./**/*.ts", 
+    "./**/*.tsx",
+    "../../../src/config/**/*.ts",
+    "../../../src/domain/**/*.ts",
+    "../../../src/lib/worldchain/**/*.ts",
+    "../../../sdk/src/configs/**/*.ts"
+  ]
+}

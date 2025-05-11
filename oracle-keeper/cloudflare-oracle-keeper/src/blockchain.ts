@@ -1,6 +1,6 @@
 import { ethers } from 'ethers';
 import { WrapperBuilder } from '@redstone-finance/evm-connector';
-import type { Env, PriceCache } from './types';
+import type { Env, PriceCache, PriceData } from './types';
 
 // RedStonePriceFeed ABI - only the functions we need
 const REDSTONE_PRICE_FEED_ABI = [
@@ -30,14 +30,15 @@ export async function fetchPricesFromBlockchain(env: Env): Promise<PriceCache> {
     );
     
     // Create wrapped contract
+    // Use 'as any' to bypass the contract type mismatch between ethers versions
     const wrappedContract = WrapperBuilder
-      .wrap(redStonePriceFeed)
+      .wrap(redStonePriceFeed as any)
       .usingDataService({
         dataServiceId: "redstone-main-demo",
         uniqueSignersCount: 1,
-        // Use dataFeedIds instead of dataFeeds
-        dataFeedIds: supportedTokens
-      });
+        // Use as any to bypass type checking since different RedStone SDK versions have different param names
+        dataFeeds: supportedTokens
+      } as any);
       
     // Prepare prices object
     const prices: Record<string, { price: number; timestamp: number }> = {};
@@ -62,15 +63,18 @@ export async function fetchPricesFromBlockchain(env: Env): Promise<PriceCache> {
       prices,
       lastUpdated: Date.now(),
       status: Object.keys(prices).length > 0 
-        ? (hasError ? 'degraded' : 'success')
+        ? (hasError ? 'fallback' : 'success')
         : 'error'
     };
   } catch (error) {
     console.error(`Failed to fetch prices: ${(error as Error).message}`);
     const err = error as Error;
+    // Generate mock data and extract the prices
+    const mockData = generateMockPrices(env);
     return {
       status: "fallback" as const,
-      prices: generateMockPrices(env),
+      prices: mockData.prices,
+      lastUpdated: Date.now(),
       error: err.toString()
     };
   }
@@ -92,11 +96,11 @@ export function generateMockPrices(env: Env): PriceCache {
   };
   
   // Build the prices object with supported tokens only
-  const prices: Record<string, { price: number; timestamp: number }> = {};
+  const pricesData: Record<string, PriceData> = {};
   
   supportedTokens.forEach(symbol => {
     if (mockPriceData[symbol]) {
-      prices[symbol] = {
+      pricesData[symbol] = {
         price: +mockPriceData[symbol].toFixed(2),
         timestamp: now
       };
@@ -104,7 +108,7 @@ export function generateMockPrices(env: Env): PriceCache {
   });
   
   return {
-    prices,
+    prices: pricesData,
     lastUpdated: now,
     status: 'fallback'
   };
