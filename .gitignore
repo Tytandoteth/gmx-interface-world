@@ -83,3 +83,6 @@ pnpm-lock.yaml
 # debug utility temporary files
 **/debug-logs/
 **/temp/
+
+# Local Netlify folder
+.netlify
