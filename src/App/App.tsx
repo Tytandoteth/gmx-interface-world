@@ -15,6 +15,7 @@ import "./App.scss";
 
 import { LANGUAGE_LOCALSTORAGE_KEY } from "config/localStorage";
 import { GlobalStateProvider } from "context/GlobalContext/GlobalContextProvider";
+import { OraclePricesProvider } from "context/OraclePricesContext";
 import { PendingTxnsContextProvider } from "context/PendingTxnsContext/PendingTxnsContext";
 import { SettingsContextProvider } from "context/SettingsContext/SettingsContextProvider";
 import { SorterContextProvider } from "context/SorterContext/SorterContextProvider";
@@ -24,13 +25,18 @@ import { TokensBalancesContextProvider } from "context/TokensBalancesContext/Tok
 import { TokensFavoritesContextProvider } from "context/TokensFavoritesContext/TokensFavoritesContextProvider";
 import { WebsocketContextProvider } from "context/WebsocketContext/WebsocketContextProvider";
 import { WorldChainProvider } from "context/WorldChainContext";
+import { WorldChainV1Provider } from "context/WorldChainV1Context";
 import { useChainId } from "lib/chains";
 import { defaultLocale, dynamicActivate } from "lib/i18n";
-import { initWorldChainDevMode, initWorldChainMetrics, initWorldChainMulticallHandler } from "lib/worldchain";
 import { RainbowKitProviderWrapper } from "lib/wallets/WalletProvider";
+import { initWorldChainConfig, initWorldChainDevMode, initWorldChainMetrics, initWorldChainMulticallHandler } from "lib/worldchain";
+import DiagnosticsPanel from "lib/worldchain/DiagnosticsPanel";
+import { WorldChainTester } from "lib/worldchain/testingTools";
 
 import SEO from "components/Common/SEO";
 import { WorldChainDevBanner } from "components/WorldChainDevMode";
+import ProductionModeToggle from "components/WorldChainDevMode/ProductionModeToggle";
+import ProductionStatusIndicator from "components/WorldChainDevMode/ProductionStatusIndicator";
 
 import { AppRoutes } from "./AppRoutes";
 import { SWRConfigProp } from "./swrConfig";
@@ -50,10 +56,14 @@ function App() {
     dynamicActivate(defaultLanguage);
   }, []);
   
-  // Initialize World Chain development mode
+  // Initialize World Chain configuration and settings
   // This ensures Oracle Keeper and contract settings are properly configured
   useEffect(() => {
-    // Initialize World Chain development mode with proper Oracle Keeper settings
+    // Initialize WorldChainConfig first to ensure it's ready for all components
+    // This prevents "Cannot read property 'feature_flags' of undefined" errors
+    initWorldChainConfig();
+    
+    // Then initialize World Chain development mode with proper Oracle Keeper settings
     initWorldChainDevMode();
     
     // Initialize World Chain metrics handling
@@ -72,6 +82,10 @@ function App() {
     <>
       <WorldChainDevBanner />
       <AppRoutes />
+      <ProductionModeToggle />
+      <ProductionStatusIndicator />
+      <DiagnosticsPanel />
+      <WorldChainTester />
     </>
   );
   app = <SorterContextProvider>{app}</SorterContextProvider>;
@@ -81,6 +95,8 @@ function App() {
   app = <TokensBalancesContextProvider>{app}</TokensBalancesContextProvider>;
   app = <WebsocketContextProvider>{app}</WebsocketContextProvider>;
   app = <WorldChainProvider>{app}</WorldChainProvider>;
+  app = <WorldChainV1Provider>{app}</WorldChainV1Provider>;
+  app = <OraclePricesProvider pollInterval={15000}>{app}</OraclePricesProvider>;
   app = <SEO>{app}</SEO>;
   app = <RainbowKitProviderWrapper>{app}</RainbowKitProviderWrapper>;
   app = <I18nProvider i18n={i18n as any}>{app}</I18nProvider>;

@@ -361,10 +361,42 @@ export const formatAmount = (
   if (displayDecimals === undefined) {
     displayDecimals = 4;
   }
-  const amountBigInt = roundBigNumberWithDecimals(BigInt(amount) * BigInt(visualMultiplier ?? 1), {
-    displayDecimals,
-    tokenDecimals,
-  });
+  let amountBigInt;
+  try {
+    // Try direct BigInt conversion first
+    amountBigInt = roundBigNumberWithDecimals(BigInt(amount) * BigInt(visualMultiplier ?? 1), {
+      displayDecimals,
+      tokenDecimals,
+    });
+  } catch (error) {
+    // Handle decimal values that can't be directly converted to BigInt
+    if (error instanceof Error && error.message.includes('is not an integer')) {
+      // Convert to a string, then handle the decimal part separately
+      const amountStr = amount.toString();
+      if (amountStr.includes('.')) {
+        const [integerPart, decimalPart] = amountStr.split('.');
+        // Convert integer part to BigInt
+        const integerBigInt = BigInt(integerPart || '0');
+        // Convert decimal part to BigInt with proper scaling
+        const decimalLength = decimalPart.length;
+        const decimalBigInt = BigInt(decimalPart || '0');
+        // Scale according to decimal places
+        const scalingFactor = BigInt(10 ** decimalLength);
+        // Combined amount = integer + (decimal / scaling)
+        // Multiply by tokenDecimals factor
+        const scaledAmount = (integerBigInt * scalingFactor + decimalBigInt) * 
+                             BigInt(10 ** (tokenDecimals - decimalLength));
+        amountBigInt = scaledAmount * BigInt(visualMultiplier ?? 1);
+      } else {
+        // This is just an integer as a string
+        amountBigInt = BigInt(amountStr) * BigInt(visualMultiplier ?? 1) * BigInt(10 ** tokenDecimals);
+      }
+    } else {
+      // Rethrow other errors
+      throw error;
+    }
+  }
+  
   let amountStr = ethers.formatUnits(amountBigInt, tokenDecimals);
   amountStr = limitDecimals(amountStr, displayDecimals);
   if (displayDecimals !== 0) {

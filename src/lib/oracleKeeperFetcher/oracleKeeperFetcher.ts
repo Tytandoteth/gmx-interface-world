@@ -1,14 +1,29 @@
+// Standard libraries
+import { Provider } from "@ethersproject/providers";
+
+// Configuration imports
 import { isLocal } from "config/env";
-import { Bar, FromNewToOldArray } from "domain/tradingview/types";
+
+// SDK imports
 import { WORLD } from "sdk/configs/chains";
 import { getOracleKeeperNextIndex, getOracleKeeperUrl } from "sdk/configs/oracleKeeper";
-import { isWorldChain, withWorldChainFallback, getWorldChainMockData } from "lib/worldchain";
-import { WorldChainConfig } from "lib/worldchain/worldChainDevMode";
 import { getNormalizedTokenSymbol } from "sdk/configs/tokens";
 import { buildUrl } from "sdk/utils/buildUrl";
-import { ethers } from "ethers";
-import { Provider, Web3Provider, JsonRpcProvider } from "@ethersproject/providers";
-import { getRedstoneOracleIntegration, PriceData } from "lib/redstone";
+
+// Library imports
+import { isWorldChain, getWorldChainMockData } from "lib/worldchain";
+
+// Domain types
+import { Bar, FromNewToOldArray } from "domain/tradingview/types";
+
+// Define PriceData interface locally to avoid dependency on deprecated module
+interface PriceData {
+  min: number;
+  max: number;
+  reference: number;
+  source?: string;
+  timestamp?: number;
+}
 
 import {
   ApyInfo,
@@ -45,8 +60,9 @@ export class OracleKeeperFetcher implements OracleFetcher {
   public readonly url: string;
   private readonly forceIncentivesActive: boolean;
 
-  // Provider for RedStone on-chain data access
-  private readonly provider?: Web3Provider | JsonRpcProvider;
+  // DEPRECATED: Provider for legacy oracle integrations
+  // No longer needed with CoinGecko integration via Oracle Keeper
+  private provider: Provider | null = null;
 
   constructor(p: {
     chainId: number;
@@ -57,25 +73,14 @@ export class OracleKeeperFetcher implements OracleFetcher {
       }
     ) => void;
     forceIncentivesActive: boolean;
-    // Optional Ethers provider for on-chain data access
-    provider?: Web3Provider | JsonRpcProvider;
   }) {
     this.chainId = p.chainId;
-    this.provider = p.provider;
-    
+
     // Special handling for World Chain - always use index 0 for World Chain
     if (p.chainId === WORLD) {
       this.oracleKeeperIndex = 0;
       console.log("Using special Oracle Keeper handling for World Chain");
-      
-      // Initialize RedStone integration if enabled and provider available
-      if (WorldChainConfig.redstone?.enabled && this.provider) {
-        console.log("RedStone integration is enabled for World Chain");
-        // Initialize the RedStone oracle integration (lazy-loaded when needed)
-      } else {
-        console.log("RedStone integration is disabled or no provider available");
-      }
-      
+
       // Ensure the configuration is updated for World Chain
       if (p.setOracleKeeperInstancesConfig) {
         p.setOracleKeeperInstancesConfig((old) => {
@@ -87,11 +92,11 @@ export class OracleKeeperFetcher implements OracleFetcher {
     } else {
       this.oracleKeeperIndex = p.oracleKeeperIndex;
     }
-    
+
     this.setOracleKeeperInstancesConfig = p.setOracleKeeperInstancesConfig;
     this.url = getOracleKeeperUrl(this.chainId, this.oracleKeeperIndex);
     this.forceIncentivesActive = p.forceIncentivesActive;
-    
+
     // Log the Oracle Keeper URL for debugging
     if (p.chainId === WORLD) {
       console.log(`Oracle Keeper URL for World Chain: ${this.url}`);
@@ -123,95 +128,33 @@ export class OracleKeeperFetcher implements OracleFetcher {
     }, 5000);
   }
 
-  // Helper method to get prices using RedStone integration
-  private async getRedStonePrices(symbols: string[]): Promise<Record<string, PriceData>> {
-    if (!this.provider || !isWorldChain(this.chainId) || !WorldChainConfig.redstone?.enabled) {
-      return {};
-    }
-
-    try {
-      const redstoneIntegration = getRedstoneOracleIntegration(this.chainId, this.provider, this.url);
-      return await redstoneIntegration.getPrices(symbols);
-    } catch (error) {
-      console.error("Failed to get prices from RedStone:", error);
-      return {};
-    }
+  // DEPRECATED: Helper method for legacy RedStone integration
+  // This method is kept for reference but is no longer used
+  // We now use CoinGecko integration via the Oracle Keeper's direct-prices endpoint
+  private async getRedStonePrices(_symbols: string[]): Promise<Record<string, PriceData>> {
+    console.warn("RedStone integration is deprecated, using CoinGecko via Oracle Keeper");
+    return {};
   }
 
   // Convert PriceData to ticker format
   private pricesToTickers(prices: Record<string, PriceData>): TickersResponse {
     return Object.entries(prices).map(([tokenSymbol, data]) => ({
-      minPrice: data.price.toString(),
-      maxPrice: data.price.toString(),
+      minPrice: data.min.toString(),
+      maxPrice: data.max.toString(),
       oracleDecimals: 8,
       tokenSymbol,
-      tokenAddress: `0x${tokenSymbol.toLowerCase()}${"0".repeat(34)}`, // Mock address for now
-      updatedAt: Math.floor(data.timestamp / 1000),
-      source: data.source // Additional field for debugging
+      tokenAddress: `0x${tokenSymbol.toLowerCase()}${"0".repeat(34)}`, // Mock address
+      updatedAt: data.timestamp || Math.floor(Date.now() / 1000),
+      source: data.source || "oracle"
     })) as TickersResponse;
   }
 
   fetchTickers(): Promise<TickersResponse> {
     // If we're in World Chain development mode, provide robust error handling with fallbacks
     if (isWorldChain(this.chainId)) {
-      // Check if we can use RedStone integration first
-      if (this.provider && WorldChainConfig.redstone?.enabled) {
-        // Try to get prices from RedStone first
-        return this.getRedStonePrices(WorldChainConfig.redstone.trackedTokens)
-          .then(prices => {
-            // If we have some prices from RedStone, convert them to tickers
-            if (Object.keys(prices).length > 0) {
-              console.log(`Got ${Object.keys(prices).length} prices from RedStone`);
-              return this.pricesToTickers(prices);
-            }
-            
-            // If no RedStone prices, fall back to Oracle Keeper
-            console.log("No RedStone prices available, falling back to Oracle Keeper");
-            throw new Error("No RedStone prices available");
-          })
-          .catch(() => {
-            // Fall back to Oracle Keeper
-            return fetch(buildUrl(this.url!, "/prices"))
-              .then((res) => res.json())
-              .then((res) => {
-                if (!res.length) {
-                  console.warn("World Chain: Invalid tickers response, using mock data");
-                  // Create mock ticker data based on the default prices
-                  const mockPrices = getWorldChainMockData<Record<string, number>>("prices") || {};
-                  // Create properly structured mock tickers data
-                  const mockTickers = Object.entries(mockPrices).map(([tokenSymbol, price]) => ({
-                    minPrice: price.toString(),
-                    maxPrice: price.toString(),
-                    oracleDecimals: 8,
-                    tokenSymbol,
-                    tokenAddress: `0x${tokenSymbol.toLowerCase()}${"0".repeat(34)}`, // Mock address
-                    updatedAt: Math.floor(Date.now() / 1000),
-                    source: "fallback"
-                  })) as TickersResponse;
-                  return mockTickers;
-                }
-                return res;
-              })
-              .catch((e) => {
-                console.warn("World Chain: Oracle Keeper error, using mock data", e);
-                // Create mock ticker data as fallback
-                const mockPrices = getWorldChainMockData<Record<string, number>>("prices") || {};
-                // Create properly structured mock tickers data
-                const mockTickers = Object.entries(mockPrices).map(([tokenSymbol, price]) => ({
-                  minPrice: price.toString(),
-                  maxPrice: price.toString(),
-                  oracleDecimals: 8,
-                  tokenSymbol,
-                  tokenAddress: `0x${tokenSymbol.toLowerCase()}${"0".repeat(34)}`, // Mock address
-                  updatedAt: Math.floor(Date.now() / 1000),
-                  source: "fallback"
-                })) as TickersResponse;
-                return mockTickers;
-              });
-          });
-      }
+      // Get prices directly from the Oracle Keeper (which uses CoinGecko)
+      console.log("Fetching prices from Oracle Keeper (CoinGecko source)");
       
-      // If RedStone is not enabled, use Oracle Keeper with fallback
       return fetch(buildUrl(this.url!, "/prices"))
         .then((res) => res.json())
         .then((res) => {
@@ -288,68 +231,49 @@ export class OracleKeeperFetcher implements OracleFetcher {
   }
 
   fetch24hPrices(): Promise<DayPriceCandle[]> {
-    // Special handling for World Chain development mode
-    if (isWorldChain(this.chainId)) {
-      return fetch(buildUrl(this.url!, "/prices/24h"))
-        .then((res) => res.json())
-        .then((res) => {
-          if (!res?.length) {
-            console.warn("World Chain: Invalid 24h prices response, using mock data");
-            // Generate mock 24h price data
-            const mockPrices = getWorldChainMockData<Record<string, number>>("prices") || {};
-            return Object.entries(mockPrices).map(([tokenSymbol, price]) => {
-              // Generate slight variations for price candles
-              const basePrice = parseFloat(price.toString());
-              const variation = basePrice * 0.02; // 2% variation
-              return {
-                tokenSymbol,
-                high: basePrice + Math.random() * variation,
-                low: basePrice - Math.random() * variation,
-                open: basePrice - variation/2 + Math.random() * variation,
-                close: basePrice
-              };
-            });
-          }
-          return res;
-        })
-        .catch((e) => {
-          console.warn("World Chain: Oracle Keeper error for 24h prices, using mock data", e);
-          // Generate mock 24h price data as fallback
-          const mockPrices = getWorldChainMockData<Record<string, number>>("prices") || {};
-          return Object.entries(mockPrices).map(([tokenSymbol, price]) => {
-            // Generate slight variations for price candles
-            const basePrice = parseFloat(price.toString());
-            const variation = basePrice * 0.02; // 2% variation
-            return {
-              tokenSymbol,
-              high: basePrice + Math.random() * variation,
-              low: basePrice - Math.random() * variation,
-              open: basePrice - variation/2 + Math.random() * variation,
-              close: basePrice
-            };
-          });
-        });
-    }
-    
-    // Standard implementation for other chains
-    return fetch(buildUrl(this.url!, "/prices/24h"))
+    return fetch(buildUrl(this.url, "/day_avg_price"))
+      .then((res) => res.json())
+      .then((res) => res.data || res)
+      .catch(() => []) as Promise<DayPriceCandle[]>;
+  }
+
+  // Implementation of fetchDirectPrices required by OracleFetcher interface
+  fetchDirectPrices(): Promise<any> {
+    // Get direct prices from Oracle Keeper (which uses CoinGecko)
+    console.log("Fetching direct prices from Oracle Keeper (CoinGecko source)");
+    // Handle URL path to avoid double slashes
+    const directPricesUrl = this.url.endsWith('/') 
+      ? `${this.url}direct-prices` 
+      : `${this.url}/direct-prices`;
+    return fetch(directPricesUrl)
       .then((res) => res.json())
       .then((res) => {
-        if (!res?.length) {
-          throw new Error("Invalid 24h prices response");
+        if (res.status !== 'success' || !res.prices) {
+          console.warn("Invalid direct prices response from Oracle Keeper", res.error || '');
+          // Return empty object as fallback
+          return { 
+            prices: {}, 
+            status: 'error', 
+            timestamp: Date.now(), 
+            source: 'fallback' 
+          };
         }
-
         return res;
       })
-      .catch((e) => {
-        // eslint-disable-next-line no-console
-        console.error(e);
-        this.switchOracleKeeper();
-        throw e;
+      .catch((error) => {
+        console.error("Error fetching direct prices from Oracle Keeper:", error);
+        // Return empty object as fallback
+        return { 
+          prices: {}, 
+          status: 'error', 
+          timestamp: Date.now(), 
+          source: 'fallback', 
+          error: String(error)
+        };
       });
   }
 
-  fetchPostBatchReport(body: BatchReportBody, debug?: boolean): Promise<Response> {
+  fetchPostBatchReport(body: BatchReportBody, debug = false): Promise<Response> {
     if (debug) {
       // eslint-disable-next-line no-console
       console.log("sendBatchMetrics", body);
@@ -368,7 +292,7 @@ export class OracleKeeperFetcher implements OracleFetcher {
     });
   }
 
-  fetchPostFeedback(body: UserFeedbackBody, debug): Promise<Response> {
+  fetchPostFeedback(body: UserFeedbackBody, debug = false): Promise<Response> {
     if (debug) {
       // eslint-disable-next-line no-console
       console.log("sendFeedback", body);

@@ -40,9 +40,14 @@ export interface DiagnosticLog {
 
 /**
  * Generate a unique request ID for correlation
+ * @param {string} [prefix] Optional prefix for the request ID
+ * @returns {string} A unique ID for request correlation
  */
-export function generateRequestId(): string {
-  return `ok-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
+export function generateRequestId(prefix?: string): string {
+  // Generate a unique ID with timestamp and random component
+  const id = `${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
+  // If prefix is provided, use it; otherwise use default 'ok' prefix
+  return prefix ? `${prefix}-${id}` : `ok-${id}`;
 }
 
 /**

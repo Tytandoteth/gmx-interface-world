@@ -1,14 +1,20 @@
 import { WORLD, isChainInDevelopment } from "sdk/configs/chains";
 
 // Constants
-// Using our RedStone-powered Oracle Keeper deployed on Cloudflare Workers
+// Using our CoinGecko-powered Oracle Keeper deployed on Cloudflare Workers
 const WORLD_ORACLE_KEEPER_URL = "https://oracle-keeper.kevin8396.workers.dev";
 
 /**
  * Special configuration flags for World Chain development mode
  */
 export const WorldChainConfig = {
-  // Default mock data to use when Oracle Keeper (RedStone) is not available
+  // Feature flags for World Chain - required to prevent undefined errors
+  feature_flags: {
+    use_coingecko_prices: true,
+    enable_test_tokens: true
+  },
+
+  // Default mock data to use when Oracle Keeper is not available
   defaultPrices: {
     WLD: 2.75,        // World native token
     USDC: 1.00,       // Stablecoin
@@ -20,21 +26,84 @@ export const WorldChainConfig = {
     DEFAULT: 1.00,    // Default price for any other token
   },
   
-  // RedStone integration configuration
-  redstone: {
-    // Enable RedStone integration
-    enabled: true,
-    // RedStone price feed contract address
-    priceFeedAddress: import.meta.env.VITE_APP_WORLD_REDSTONE_PRICE_FEED as string || "0x163f8c2467924be0ae7b5347228cabf260318753",
-    // Default tokens to track from RedStone
-    trackedTokens: ["WLD", "ETH", "BTC", "USDC", "USDT", "MAG"],
+  // Price data source configuration
+  price_sources: {
+    // Primary price source is CoinGecko
+    primary: "coingecko",
+    // Oracle Keeper direct prices endpoint URL
+    direct_prices_endpoint: import.meta.env.VITE_ORACLE_KEEPER_DIRECT_PRICES_URL as string || "/direct-prices",
+    // Default tokens to track
+    trackedTokens: ["WLD", "WETH", "MAG"],
   },
   
-  // Mock market configuration for the interface
+  // Token configurations for World Chain
+  tokens: {
+    WLD: {
+      address: "0x163f8C2467924be0ae7B5347228CABF260318753",
+      decimals: 18,
+      coingecko_id: "worldcoin"
+    },
+    WETH: {
+      address: "0x4200000000000000000000000000000000000006",
+      decimals: 18,
+      coingecko_id: "ethereum"
+    },
+    USDC: {
+      address: "0x06eFdBFf2a14a7c8E15944D1F4A48F9F95F663A4",
+      decimals: 6,
+      coingecko_id: "usd-coin"
+    }
+  },
+  
+  // Market configurations for World Chain
   markets: {
-    // Define some default markets that will be shown in development mode
-    // These addresses are placeholders - they'll be replaced with real addresses
-    // when contracts are deployed
+    "WLD-USDC": {
+      base: "WLD",
+      quote: "USDC"
+    },
+    "WETH-USDC": {
+      base: "WETH",
+      quote: "USDC"
+    }
+  },
+  
+  // DEPRECATED CONFIGURATIONS
+  // The following configurations are kept for backward compatibility
+  // but are no longer used in the current implementation
+  
+  // DEPRECATED: Legacy Witnet integration (no longer used)
+  witnet: {
+    enabled: false,
+    priceRouterAddress: "",
+    trackedTokens: ["WLD", "WETH", "MAG"],
+  },
+  
+  // DEPRECATED: Legacy RedStone integration (no longer used)
+  redstone: {
+    enabled: false,
+    priceFeedAddress: "",
+    trackedTokens: [],
+  },
+  
+  // Market configuration for World Chain
+  // Using a source-agnostic structure that supports various price sources
+  markets_v2: {
+    // Modern-style market definitions with base/quote tokens
+    "WLD-USDC": {
+      base: "WLD",
+      quote: "USDC",
+      enabled: true
+    },
+    "WETH-USDC": {
+      base: "WETH",
+      quote: "USDC",
+      enabled: true
+    }
+  },
+  
+  // DEPRECATED: Legacy market definitions - kept for backward compatibility
+  // This structure will be removed in future updates
+  legacy_markets: {
     WLD_USDC: {
       marketTokenAddress: "0x7eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee1",
       indexTokenAddress: "0x1eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee1", // WLD
@@ -52,23 +121,36 @@ export const WorldChainConfig = {
       indexTokenAddress: "0x1eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee3", // BTC
       longTokenAddress: "0x2eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee1", // USDC
       shortTokenAddress: "0x2eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee1", // USDC
-    },
+    }
   },
   
-  // Token configuration for World Chain
-  tokens: {
-    // Native token and common stablecoins/crypto
-    WLD: "0x1eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee1",
+  // Token configuration for World Chain - merged from all definitions
+  tokens_v2: {
+    // Expanded token definitions with metadata
+    WLD: {
+      address: "0x163f8C2467924be0ae7B5347228CABF260318753",
+      decimals: 18,
+      coingecko_id: "worldcoin"
+    },
+    WETH: {
+      address: "0x4200000000000000000000000000000000000006",
+      decimals: 18,
+      coingecko_id: "ethereum"
+    },
+    USDC: {
+      address: "0x06eFdBFf2a14a7c8E15944D1F4A48F9F95F663A4",
+      decimals: 6,
+      coingecko_id: "usd-coin"
+    },
+    // Legacy token address definitions
     ETH: "0x1eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee2",
     BTC: "0x1eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee3",
-    USDC: "0x2eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee1",
     USDT: "0x2eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee2",
   },
   
   // Flag to explicitly enable development mode for diagnostics
-  enableDevMode: true,
-  
-  // Oracle Keeper URL for World Chain
+  useMockData: isChainInDevelopment(WORLD),
+  enableDevMode: isChainInDevelopment(WORLD),
   oracleKeeperUrl: WORLD_ORACLE_KEEPER_URL,
 };
 

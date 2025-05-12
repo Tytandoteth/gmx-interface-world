@@ -160,6 +160,7 @@
     "happy-dom": "14.12.3",
     "husky": "7.0.4",
     "lint-staged": "12.3.4",
+    "node-fetch": "^3.3.2",
     "postcss": "8.4.41",
     "prettier": "3.2.5",
     "prettier-plugin-tailwindcss": "0.6.5",

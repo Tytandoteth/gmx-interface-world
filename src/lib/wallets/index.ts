@@ -4,6 +4,7 @@ import { ChainId } from "config/chains";
 import { SELECTED_NETWORK_LOCAL_STORAGE_KEY } from "config/localStorage";
 
 import { getRainbowKitConfig } from "./rainbowKitConfig";
+import { appLogger } from "../debug/logger";
 
 export type NetworkMetadata = {
   chainId: string;
@@ -18,7 +19,40 @@ export type NetworkMetadata = {
 };
 
 export async function switchNetwork(chainId: number, active: boolean): Promise<void> {
-  if (active) {
+  // Special handling for World Chain (ID: 480)
+  if (chainId === 480) {
+    try {
+      if (active && window.ethereum) {
+        // Manual network add for World Chain
+        await window.ethereum.request({
+          method: 'wallet_addEthereumChain',
+          params: [{
+            chainId: '0x1E0', // 480 in hex
+            chainName: 'World Chain',
+            nativeCurrency: {
+              name: 'World',
+              symbol: 'WLD',
+              decimals: 18
+            },
+            rpcUrls: ['https://sleek-little-leaf.worldchain-mainnet.quiknode.pro/49cff082c3f8db6bc60bd05d7256d2fda94a42cd/'],
+            blockExplorerUrls: ['https://explorer.world-chain.com']
+          }]
+        });
+        localStorage.setItem(SELECTED_NETWORK_LOCAL_STORAGE_KEY, String(chainId));
+      } else {
+        // No active wallet, just store chainId in localStorage
+        localStorage.setItem(SELECTED_NETWORK_LOCAL_STORAGE_KEY, String(chainId));
+        document.location.reload();
+      }
+    } catch (error) {
+      // Log error using appLogger
+      appLogger.error('Failed to switch to World Chain', 
+        error instanceof Error ? error.message : String(error)
+      );
+      throw error;
+    }
+  } else if (active) {
+    // Standard network switching for other chains
     await switchChain(getRainbowKitConfig(), {
       chainId: chainId as ChainId,
     });

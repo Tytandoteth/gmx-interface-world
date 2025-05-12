@@ -49,6 +49,7 @@ import UsefulLinks from "components/Exchange/UsefulLinks";
 import ExternalLink from "components/ExternalLink/ExternalLink";
 import Footer from "components/Footer/Footer";
 import Tabs from "components/Tabs/Tabs";
+import { ExchangePriceBar } from "components/TokenPrice";
 
 import "./Exchange.css";
 
@@ -1071,6 +1072,7 @@ export const Exchange = forwardRef(
     return (
       <div className="Exchange page-layout">
         {showBanner && <ExchangeBanner hideBanner={hideBanner} />}
+        <ExchangePriceBar />
         <div className="Exchange-content">
           <div className="Exchange-left">
             {renderChart()}

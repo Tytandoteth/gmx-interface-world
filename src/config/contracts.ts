@@ -8,6 +8,54 @@ import { Multicall__factory } from "typechain-types/factories/Multicall__factory
 
 const { ZeroAddress } = ethers;
 
+// World Chain Integration Configuration
+export const WORLD_CHAIN_ID = 480;
+
+// Test Environment for World Chain
+export const TEST_ENVIRONMENT = {
+  // Test Tokens
+  tokens: {
+    TUSD: {
+      address: "0xc1f17FB5db2A71617840eCe29c241997448f6720",
+      symbol: "TUSD",
+      name: "Test USD",
+      decimals: 18,
+      isStable: true,
+      isShortable: false,
+      imageUrl: "/icons/tusd.svg"
+    },
+    TBTC: {
+      address: "0x9cdee0fb64c18d3af7C8cB30Aada5f7fe90aF553",
+      symbol: "TBTC",
+      name: "Test Bitcoin",
+      decimals: 8,
+      isStable: false,
+      isShortable: true,
+      imageUrl: "/icons/tbtc.svg"
+    },
+    TETH: {
+      address: "0xE9298442418B800105b86953db930659e5b13058",
+      symbol: "TETH",
+      name: "Test Ethereum",
+      decimals: 18,
+      isStable: false,
+      isShortable: true,
+      imageUrl: "/icons/teth.svg"
+    }
+  },
+  
+  // Core Contracts
+  contracts: {
+    Vault: "0x6519E08ecC9B2763FbEf360132a8303dc2E9ccE5",
+    Router: "0x1958F6Cba8eb87902bDc1805A2a3bD5842BE645b",
+    PositionRouter: "0x566e66c17a6DfE5B0964fA0AFC85cF3cc5963dAF",
+    PositionManager: "0x0AC8566466e68678d2d32F625d2d3CD9e6cf088D",
+    OrderBook: "0x8179D468fF072B8A9203A293a37ef70EdCA850fc",
+    SimplePriceFeed: "0xa19F571B0B00A36028Ce47721AFa1395Bb581E5d",
+    WitnetPriceRouter: "0x4F1424Cef6940b706f3395a31ab1F1A7dF43845c" // Added Witnet price router
+  }
+};
+
 export { getContract } from "sdk/configs/contracts";
 
 export const XGMT_EXCLUDED_ACCOUNTS = [

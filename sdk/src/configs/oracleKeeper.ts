@@ -15,7 +15,17 @@ const ORACLE_KEEPER_URLS: Record<number, string[]> = {
 };
 
 // Special handling for World chain to ensure it always has a valid Oracle Keeper URL
-const WORLD_ORACLE_KEEPER_URL = "https://oracle-keeper.kevin8396.workers.dev";
+// First check for environment variable, then fall back to default URL
+const WORLD_ORACLE_KEEPER_URL = (
+  // First priority: VITE_ORACLE_KEEPER_URL environment variable (most specific)
+  typeof import.meta.env !== 'undefined' && import.meta.env.VITE_ORACLE_KEEPER_URL ? 
+    import.meta.env.VITE_ORACLE_KEEPER_URL as string : 
+  // Second priority: Generic APP version of the environment variable
+  typeof import.meta.env !== 'undefined' && import.meta.env.VITE_APP_ORACLE_KEEPER_URL ? 
+    import.meta.env.VITE_APP_ORACLE_KEEPER_URL as string : 
+  // Default fallback
+  "https://oracle-keeper.kevin8396.workers.dev"
+);
 
 export function getOracleKeeperUrl(chainId: number, index: number) {
   // Special case for World chain - always use the local Oracle Keeper

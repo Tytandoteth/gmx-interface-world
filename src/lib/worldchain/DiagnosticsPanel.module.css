@@ -1,0 +1,136 @@
+.panel {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 1000;
+  background: #222;
+  color: #fff;
+  padding: 15px;
+  border-radius: 5px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.5);
+  max-height: 80vh;
+  overflow: auto;
+  font-size: 12px;
+  transition: all 0.3s ease;
+}
+
+.panel.collapsed {
+  max-width: 50px;
+}
+
+.panel.expanded {
+  max-width: 400px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.title {
+  margin: 0;
+  color: #4CAF50;
+}
+
+.section {
+  border-top: 1px solid #444;
+  padding-top: 10px;
+  margin-bottom: 15px;
+}
+
+.sectionTitle {
+  margin: 0 0 5px;
+  color: #2196F3;
+}
+
+.actionsContainer {
+  margin-top: 15px;
+  display: flex;
+  gap: 10px;
+}
+
+.errorText {
+  color: #f44336;
+  font-weight: bold;
+}
+
+.priceError {
+  color: red;
+}
+
+.marginTop {
+  margin-top: 5px;
+}
+
+.tokenGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+}
+
+.statusContainer {
+  padding: 5px 10px;
+  border-radius: 3px;
+  display: inline-block;
+  margin: 5px 0;
+  font-weight: bold;
+}
+
+.statusConnected {
+  background-color: #4CAF50;
+  color: white;
+}
+
+.statusLoading {
+  background-color: #FFC107;
+  color: #333;
+}
+
+.statusError {
+  background-color: #F44336;
+  color: white;
+}
+
+.collapseButton {
+  background: transparent;
+  border: none;
+  color: white;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 0 5px;
+  margin-left: 10px;
+}
+
+.networkInfo {
+  margin-bottom: 5px;
+}
+
+.tokenPrice {
+  display: flex;
+  justify-content: space-between;
+  padding: 2px 0;
+}
+
+.configItem {
+  margin-bottom: 3px;
+}
+
+.actionButton {
+  background: #2196F3;
+  color: white;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.logButton {
+  background: #4CAF50;
+  color: white;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 3px;
+  cursor: pointer;
+}

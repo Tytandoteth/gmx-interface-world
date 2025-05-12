@@ -53,7 +53,7 @@
     "build:types": "tsc -p tsconfig.json --emitDeclarationOnly",
     "tscheck": "tsc -p tsconfig.json --noEmit",
     "clean": "rm -rf build/**/*.tsbuildinfo",
-    "build": "rm -rf build && yarn build:types && yarn build:cjs && yarn build:esm && yarn clean"
+    "build": "rm -rf build && tsc -p tsconfig.json --emitDeclarationOnly && tsc -p tsconfig.cjs.json && echo '{\"type\": \"commonjs\"}' > build/cjs/src/package.json && tsc -p tsconfig.esm.json && echo '{\"type\": \"module\"}' > build/esm/src/package.json && rm -rf build/**/*.tsbuildinfo"
   },
   "publishConfig": {
     "access": "public"

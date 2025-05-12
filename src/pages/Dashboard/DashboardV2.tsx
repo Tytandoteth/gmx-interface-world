@@ -10,6 +10,7 @@ import { GLP_DECIMALS, GMX_DECIMALS, getPageTitle } from "lib/legacy";
 import { expandDecimals } from "lib/numbers";
 import { useTradePageVersion } from "lib/useTradePageVersion";
 import useWallet from "lib/wallets/useWallet";
+import { isWorldChain } from "lib/worldchain";
 import { getWhitelistedV1Tokens } from "sdk/configs/tokens";
 import { bigMath } from "sdk/utils/bigmath";
 
@@ -18,6 +19,7 @@ import ExternalLink from "components/ExternalLink/ExternalLink";
 import Footer from "components/Footer/Footer";
 import PageTitle from "components/PageTitle/PageTitle";
 import { MarketsList } from "components/Synthetics/MarketsList/MarketsList";
+import { OraclePriceOverview } from "components/TokenPrice";
 
 import { DashboardPageTitle } from "./DashboardPageTitle";
 import { GlpCard } from "./GlpCard";
@@ -168,6 +170,19 @@ export default function DashboardV2() {
               </SyntheticsStateContextProvider>
             )}
           </div>
+          
+          {isWorldChain(chainId) && (() => {
+            const worldChainTokens = ["WLD", "WETH", "MAG"];
+            return (
+              <div className="DashboardV2-world-chain-section">
+                <OraclePriceOverview 
+                  tokens={worldChainTokens} 
+                  title="World Chain Oracle Prices"
+                  showSources={true}
+                />
+              </div>
+            );
+          })()}
         </div>
         <Footer />
       </div>

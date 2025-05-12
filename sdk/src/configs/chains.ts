@@ -7,7 +7,7 @@ export const ARBITRUM = 42161;
 export const BSС_MAINNET = 56;
 export const BSС_TESTNET = 97;
 export const ETH_MAINNET = 1;
-export const WORLD = 424;
+export const WORLD = 480;
 
 export const SUPPORTED_CHAIN_IDS = [ARBITRUM, AVALANCHE, WORLD];
 export const SUPPORTED_CHAIN_IDS_DEV = [...SUPPORTED_CHAIN_IDS, AVALANCHE_FUJI];
@@ -87,8 +87,20 @@ export const worldChain = defineChain({
     symbol: 'WLD',
   },
   rpcUrls: {
-    default: { http: ['https://rpc.world-chain.org'] },
-    public: { http: ['https://rpc.world-chain.org'] },
+    default: { http: [
+      // Primary: QuikNode endpoint (most reliable)
+      'https://sleek-little-leaf.worldchain-mainnet.quiknode.pro/49cff082c3f8db6bc60bd05d7256d2fda94a42cd/',
+      // Fallback endpoints
+      'https://rpc.world-chain.com/v1/mainnet',
+      'https://rpc-world-chain.publicnode.com',
+    ] },
+    public: { http: [
+      // Primary: QuikNode endpoint (most reliable)
+      'https://sleek-little-leaf.worldchain-mainnet.quiknode.pro/49cff082c3f8db6bc60bd05d7256d2fda94a42cd/',
+      // Fallback endpoints
+      'https://rpc.world-chain.com/v1/mainnet',
+      'https://rpc-world-chain.publicnode.com',
+    ] },
   },
   blockExplorers: {
     default: { name: 'WorldScan', url: 'https://explorer.world-chain.org' },

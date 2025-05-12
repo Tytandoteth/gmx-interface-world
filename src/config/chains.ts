@@ -68,10 +68,12 @@ const constants = {
     defaultCollateralSymbol: "USDC",
     defaultFlagOrdersEnabled: true,
     positionReaderPropsLength: 8,
-    v2: {
-      minCollateralUsd: parseEther("10"),
-      minPositionSizeUsd: parseEther("10"),
-    },
+    v2: false, // Set to false to use V1 contracts
+    
+    // V1-specific execution fees
+    SWAP_ORDER_EXECUTION_GAS_FEE: parseEther("0.005"),
+    INCREASE_ORDER_EXECUTION_GAS_FEE: parseEther("0.005"),
+    DECREASE_ORDER_EXECUTION_GAS_FEE: parseEther("0.0050001"),
   },
   [BSС_MAINNET]: {
     nativeTokenSymbol: "BNB",
@@ -136,11 +138,15 @@ const ALCHEMY_WHITELISTED_DOMAINS = ["gmx.io", "app.gmx.io"];
 
 export const RPC_PROVIDERS = {
   [WORLD]: [
-    // Use localhost for development and testing
-    "http://localhost:8545",
-    // Production URLs
+    // Primary: Always use the QuikNode endpoint (guaranteed CORS support and reliability)
     "https://sleek-little-leaf.worldchain-mainnet.quiknode.pro/49cff082c3f8db6bc60bd05d7256d2fda94a42cd/",
-    "https://rpc.world-chain.org",
+    // Secondary: Use specific environment variable for World Chain RPC URL if available
+    ...(import.meta.env.VITE_WORLD_RPC_URL ? [import.meta.env.VITE_WORLD_RPC_URL] : []),
+    // Tertiary: Use general environment variable if set
+    ...(import.meta.env.VITE_APP_WORLD_CHAIN_URL ? [import.meta.env.VITE_APP_WORLD_CHAIN_URL] : []),
+    // Fallback URLs only used if QuikNode is unreachable
+    "https://rpc.world-chain.com/v1/mainnet",
+    "https://rpc-world-chain.publicnode.com",
     // Add any additional World chain RPC URLs from ENV_WORLD_RPC_URLS if needed
     ...(ENV_WORLD_RPC_URLS ? ENV_WORLD_RPC_URLS.split(",") : []),
   ],

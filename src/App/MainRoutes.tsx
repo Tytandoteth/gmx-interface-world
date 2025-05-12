@@ -15,6 +15,7 @@ import { useHasLostFocus } from "lib/useHasPageLostFocus";
 import { abis } from "sdk/abis";
 
 import Debug from "components/Debug/Debug";
+import TestingPanel from "components/WorldChainDevMode/TestingPanel";
 
 import { AccountDashboard } from "pages/AccountDashboard/AccountDashboard";
 import { buildAccountDashboardUrl } from "pages/AccountDashboard/buildAccountDashboardUrl";
@@ -41,10 +42,12 @@ import PositionsOverview from "pages/PositionsOverview/PositionsOverview";
 import { PriceImpactRebatesStatsPage } from "pages/PriceImpactRebatesStats/PriceImpactRebatesStats";
 import RedstoneTestPage from "pages/RedstoneTestPage";
 import Referrals from "pages/Referrals/Referrals";
+import SimplePriceFeedDebug from "pages/SimplePriceFeedDebug";
 import ReferralsTier from "pages/ReferralsTier/ReferralsTier";
 import Stats from "pages/Stats/Stats";
 import { SyntheticsPage } from "pages/SyntheticsPage/SyntheticsPage";
 import { SyntheticsStats } from "pages/SyntheticsStats/SyntheticsStats";
+import WorldChainDevTools from "pages/DevTools/WorldChainDevTools";
 import { validatePaths } from "../debug/validation";
 
 const LazyUiPage = lazy(() => import("pages/UiPage/UiPage"));
@@ -159,6 +162,9 @@ export function MainRoutes({ openSettings }: { openSettings: () => void }) {
       <Route exact path="/redstone-test">
         <RedstoneTestPage />
       </Route>
+      <Route exact path="/worldchain/dev-tools">
+        <WorldChainDevTools />
+      </Route>
       <Route path="/leaderboard/">
         <SyntheticsStateContextProvider skipLocalReferralCode pageType="leaderboard">
           <LeaderboardPage />
@@ -244,6 +250,14 @@ export function MainRoutes({ openSettings }: { openSettings: () => void }) {
         
       <Route exact path="/debug">
         <Debug />
+      </Route>
+      
+      <Route exact path="/worldchain/testing">
+        <TestingPanel />
+      </Route>
+      
+      <Route exact path="/worldchain/price-feed">
+        <SimplePriceFeedDebug />
       </Route>
 
       <Route path="*">

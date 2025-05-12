@@ -81,8 +81,9 @@ export function MarketsListV1({
                   tokenInfo.poolAmount
                 );
               }
+              // Set default value for maxUsdgAmount and only override if tokenInfo exists and has a valid value
               let maxUsdgAmount = DEFAULT_MAX_USDG_AMOUNT;
-              if (tokenInfo.maxUsdgAmount !== undefined && tokenInfo.maxUsdgAmount > 0) {
+              if (tokenInfo && tokenInfo.maxUsdgAmount !== undefined && tokenInfo.maxUsdgAmount > 0) {
                 maxUsdgAmount = tokenInfo.maxUsdgAmount;
               }
 
@@ -134,11 +135,13 @@ export function MarketsListV1({
                             )} ${token.symbol}`}
                             showDollar={false}
                           />
-                          <StatsTooltipRow
-                            label={t`Max ${tokenInfo.symbol} Capacity`}
-                            value={formatAmountHuman(maxUsdgAmount, 18, true, 2)}
-                            showDollar={false}
-                          />
+                          {tokenInfo && (
+                            <StatsTooltipRow
+                              label={t`Max ${tokenInfo.symbol} Capacity`}
+                              value={formatAmountHuman(maxUsdgAmount, 18, true, 2)}
+                              showDollar={false}
+                            />
+                          )}
                         </>
                       }
                     />

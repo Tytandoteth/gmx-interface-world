@@ -1,27 +1,67 @@
 .world-chain-dev-banner {
   position: fixed;
   top: 64px;
-  left: 0;
   right: 0;
   z-index: 900;
   background-color: rgba(25, 27, 31, 0.95);
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   color: white;
-  padding: 1rem;
+  padding: 0.5rem;
   font-size: 0.9rem;
+  transition: all 0.3s ease;
+  width: 320px;
+  max-height: calc(100vh - 70px);
+  box-shadow: -2px 2px 8px rgba(0, 0, 0, 0.2);
+  border-radius: 0 0 0 8px;
+  overflow: auto;
+}
+
+.world-chain-dev-banner.minimized {
+  width: auto;
+  padding: 0.25rem;
+  border-radius: 0 0 0 8px;
+  opacity: 0.7;
+}
+
+.world-chain-dev-banner:hover {
+  opacity: 1;
+}
+
+.banner-control-button {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  font-size: 0.8rem;
+  padding: 0.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.banner-control-button:hover {
+  color: #fff;
+}
+
+.banner-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .world-chain-dev-banner-content {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0.5rem 1rem;
+  padding: 0.25rem;
 }
 
 .world-chain-dev-banner h3 {
   margin-top: 0;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0;
   color: #f2ba2f;
-  font-size: 1.2rem;
+  font-size: 1rem;
+  flex: 1;
 }
 
 .world-chain-dev-banner h4 {
@@ -38,12 +78,42 @@
   margin: 1rem 0;
 }
 
-.status-indicator {
-  display: inline-block;
-  padding: 0.3rem 0.8rem;
-  border-radius: 4px;
+.status-pill {
+  display: inline-flex;
+  padding: 0.2rem 0.5rem;
+  border-radius: 12px;
   font-weight: bold;
-  margin-bottom: 0.5rem;
+  font-size: 0.7rem;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+.details-toggle {
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  cursor: pointer;
+}
+
+.details-toggle:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.price-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 0.5rem;
+}
+
+.price-item {
+  background-color: rgba(0, 0, 0, 0.2);
+  padding: 0.5rem;
+  border-radius: 4px;
+  text-align: center;
 }
 
 .status-success {

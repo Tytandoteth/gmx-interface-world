@@ -1,313 +1,458 @@
 import React, { useEffect, useState } from "react";
+import { ethers } from "ethers";
+
+// Import config and chains
 import { getContract } from "sdk/configs/contracts";
 import { WORLD } from "config/static/chains";
-import { DEFAULT_ORACLE_KEEPER_URL } from "lib/oracleKeeperFetcher/oracleKeeperConstants";
-import { OracleKeeperDebugger, DebugLevel, DebugModule } from "lib/oracleKeeperFetcher/debug/oracleKeeperDebugger";
 
+// Import wallet and contract utilities
+import { switchNetwork } from "lib/wallets";
+import { hasV1Contracts, getV1Contracts } from "config/worldChainContracts";
+
+// Import Oracle Keeper utilities
+import { fetchDirectPrices, checkOracleKeeperHealth } from "lib/oraclePrices/worldChainPriceFeed";
+import { DEFAULT_ORACLE_KEEPER_URL } from "lib/oracleKeeperFetcher/oracleKeeperConstants";
+
+// Define the QuikNode RPC URL as a constant
+const WORLD_QUIKNODE_RPC = "https://sleek-little-leaf.worldchain-mainnet.quiknode.pro/49cff082c3f8db6bc60bd05d7256d2fda94a42cd/";
+
+/**
+ * World Chain Diagnostics Debug Component
+ * 
+ * A diagnostic tool to test World Chain integration with GMX interface including:
+ * - RPC connectivity
+ * - Contract address validation
+ * - Oracle Keeper integration
+ * - Network switching functionality
+ */
 export function Debug(): JSX.Element {
+  // State for tabs and logs
+  const [activeTab, setActiveTab] = useState<"general" | "diagnostics">("diagnostics");
   const [logs, setLogs] = useState<string[]>([]);
-  const [activeTab, setActiveTab] = useState<"general" | "oracleKeeper">("general");
-  const [oracleKeeperLogs, setOracleKeeperLogs] = useState<any[]>([]);
-  const [oracleKeeperStatus, setOracleKeeperStatus] = useState<Record<string, string>>({});
-  const [isTestingOracleKeeper, setIsTestingOracleKeeper] = useState(false);
   
+  // State for diagnostics
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [contractAddresses, setContractAddresses] = useState<Record<string, string>>({});
+  const [networkStatus, setNetworkStatus] = useState<string>("");
+  const [oracleStatus, setOracleStatus] = useState<{ isHealthy: boolean; details: any } | null>(null);
+  const [tokenPrices, setTokenPrices] = useState<Record<string, number> | null>(null);
+  
+  // Helper for logging
   const addLog = (message: string): void => {
-    setLogs((prevLogs) => [...prevLogs, message]);
+    const timestamp = new Date().toLocaleTimeString();
+    setLogs((prev) => [...prev, `[${timestamp}] ${message}`]);
   };
 
+  // Run initial diagnostics on load
   useEffect(() => {
-    addLog("Debug component mounted");
+    addLog("Debug component initialized");
+    addLog(`RPC URL: ${WORLD_QUIKNODE_RPC}`);
+    addLog(`Oracle Keeper URL: ${DEFAULT_ORACLE_KEEPER_URL}`);
     
-    // Check for environment variables
-    addLog(`VITE_APP_DEFAULT_CHAIN_ID: ${import.meta.env.VITE_APP_DEFAULT_CHAIN_ID || "not set"}`);
-    addLog(`VITE_APP_INCLUDE_WORLD_CHAIN: ${import.meta.env.VITE_APP_INCLUDE_WORLD_CHAIN || "not set"}`);
-    
-    // Check contract addresses
-    try {
-      const vaultAddress = getContract(WORLD, "Vault");
-      addLog(`WORLD Vault address: ${vaultAddress}`);
-    } catch (error) {
-      addLog(`Error getting Vault address: ${(error as Error).message}`);
+    // Load contract addresses
+    if (hasV1Contracts(WORLD)) {
+      const contracts = getV1Contracts(WORLD);
+      setContractAddresses(contracts);
+      addLog(`Loaded ${Object.keys(contracts).length} contract addresses for World Chain`);
+    } else {
+      addLog("No V1 contracts found for World Chain");
     }
     
     // Test RPC connection
-    const testRPC = async (): Promise<void> => {
-      try {
-        addLog("Testing RPC connection to World chain...");
-        const response = await fetch("https://rpc.world-chain.org", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            jsonrpc: "2.0",
-            method: "eth_chainId",
-            params: [],
-            id: 1
-          })
-        });
-        const data = await response.json();
-        addLog(`RPC Response: ${JSON.stringify(data)}`);
-      } catch (error) {
-        addLog(`RPC Error: ${(error as Error).message}`);
-      }
-    };
-
-    void testRPC();
-    
-    // Add Oracle Keeper URL to logs
-    addLog(`Oracle Keeper URL: ${DEFAULT_ORACLE_KEEPER_URL}`);
+    void testRpcConnection();
   }, []);
   
-  // Run Oracle Keeper diagnostics
-  const runOracleKeeperDiagnostics = async () => {
-    setIsTestingOracleKeeper(true);
-    setOracleKeeperLogs([]);
-    setOracleKeeperStatus({});
-    
+  // Test RPC connection to World Chain
+  const testRpcConnection = async (): Promise<void> => {
     try {
-      // Using a variable name other than 'debugger' as it's a reserved word in JavaScript
-      const oracleDebugger = new OracleKeeperDebugger(DEFAULT_ORACLE_KEEPER_URL, false);
+      addLog("Testing RPC connection to World Chain...");
+      setIsLoading(true);
       
-      // Health check
-      setOracleKeeperStatus(prev => ({ ...prev, healthCheck: "running" }));
-      const healthResult = await oracleDebugger.testHealthCheck();
-      setOracleKeeperStatus(prev => ({ ...prev, healthCheck: healthResult ? "success" : "failure" }));
-      setOracleKeeperLogs(oracleDebugger.getLogs());
+      const response = await fetch(WORLD_QUIKNODE_RPC, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          method: "eth_chainId",
+          params: [],
+          id: 1
+        })
+      });
       
-      // Cache test
-      setOracleKeeperStatus(prev => ({ ...prev, cache: "running" }));
-      const cacheResult = oracleDebugger.testCache();
-      setOracleKeeperStatus(prev => ({ ...prev, cache: cacheResult ? "success" : "failure" }));
-      setOracleKeeperLogs(oracleDebugger.getLogs());
+      const data = await response.json();
       
-      // Fetch test
-      setOracleKeeperStatus(prev => ({ ...prev, fetch: "running" }));
-      const fetchResult = await oracleDebugger.testFetchWithRetry();
-      setOracleKeeperStatus(prev => ({ ...prev, fetch: fetchResult ? "success" : "failure" }));
-      setOracleKeeperLogs(oracleDebugger.getLogs());
-      
-      // Keeper test
-      setOracleKeeperStatus(prev => ({ ...prev, keeper: "running" }));
-      const keeperResult = await oracleDebugger.testRobustOracleKeeper();
-      setOracleKeeperStatus(prev => ({ ...prev, keeper: keeperResult ? "success" : "failure" }));
-      setOracleKeeperLogs(oracleDebugger.getLogs());
-      
-      // Fallback test
-      setOracleKeeperStatus(prev => ({ ...prev, fallback: "running" }));
-      const fallbackResult = await oracleDebugger.testFallbackBehavior();
-      setOracleKeeperStatus(prev => ({ ...prev, fallback: fallbackResult ? "success" : "failure" }));
-      setOracleKeeperLogs(oracleDebugger.getLogs());
-      
+      if (data.result) {
+        const chainId = parseInt(data.result, 16);
+        addLog(`RPC Connection Successful! Chain ID: ${chainId} (${data.result})`);
+        setNetworkStatus(`Connected to World Chain (ID: ${chainId})`);
+      } else if (data.error) {
+        addLog(`RPC Error: ${data.error.message || JSON.stringify(data.error)}`);
+        setNetworkStatus(`Error: ${data.error.message || "Failed to connect"}`);
+      }
     } catch (error) {
-      console.error("Error running Oracle Keeper diagnostics:", error);
+      addLog(`RPC Connection Failed: ${(error as Error).message}`);
+      setNetworkStatus(`Error: ${(error as Error).message}`);
     } finally {
-      setIsTestingOracleKeeper(false);
+      setIsLoading(false);
     }
   };
-
-  // Style constants
+  
+  // Test contract address validation
+  const testContractAddresses = async (): Promise<void> => {
+    addLog("Validating contract addresses...");
+    setIsLoading(true);
+    
+    try {
+      if (!contractAddresses || Object.keys(contractAddresses).length === 0) {
+        addLog("No contract addresses to validate");
+        return;
+      }
+      
+      let validCount = 0;
+      let invalidCount = 0;
+      
+      Object.entries(contractAddresses).forEach(([name, address]) => {
+        try {
+          const checksummedAddress = ethers.getAddress(address);
+          const isValid = checksummedAddress === address;
+          
+          if (isValid) {
+            validCount++;
+            addLog(`✅ ${name}: ${address} - Valid checksum`);
+          } else {
+            invalidCount++;
+            addLog(`❌ ${name}: ${address} - Invalid checksum (should be ${checksummedAddress})`);
+          }
+        } catch (error) {
+          invalidCount++;
+          addLog(`❌ ${name}: ${address} - Invalid address format`);
+        }
+      });
+      
+      addLog(`Validation complete: ${validCount} valid, ${invalidCount} invalid addresses`);
+    } catch (error) {
+      addLog(`Error validating addresses: ${(error as Error).message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  // Test Oracle Keeper
+  const testOracleKeeper = async (): Promise<void> => {
+    addLog("Testing Oracle Keeper integration...");
+    setIsLoading(true);
+    setOracleStatus(null);
+    setTokenPrices(null);
+    
+    try {
+      // Check health
+      addLog("Checking Oracle Keeper health...");
+      const health = await checkOracleKeeperHealth();
+      setOracleStatus(health);
+      
+      addLog(`Oracle Keeper Health: ${health.isHealthy ? "✅ Healthy" : "❌ Unhealthy"}`);
+      
+      // Get prices
+      addLog("Fetching prices from Oracle Keeper...");
+      const pricesResponse = await fetchDirectPrices();
+      
+      if (pricesResponse.prices) {
+        setTokenPrices(pricesResponse.prices);
+        
+        addLog(`Received prices for ${Object.keys(pricesResponse.prices).length} tokens:`);
+        Object.entries(pricesResponse.prices).forEach(([token, price]) => {
+          addLog(`${token}: $${typeof price === "number" ? price.toFixed(2) : price}`);
+        });
+        
+        addLog(`Source: ${pricesResponse.source || "Unknown"}`);
+        addLog(`Last Updated: ${pricesResponse.lastUpdated || "Unknown"}`);
+      } else {
+        addLog("❌ No price data received");
+      }
+    } catch (error) {
+      addLog(`❌ Oracle Keeper Error: ${(error as Error).message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  // Test network switching
+  const testNetworkSwitching = async (): Promise<void> => {
+    addLog("Testing network switching to World Chain...");
+    setIsLoading(true);
+    
+    try {
+      if (!window.ethereum) {
+        throw new Error("MetaMask not detected. Please install MetaMask and refresh.");
+      }
+      
+      addLog("Requesting network switch...");
+      await switchNetwork(WORLD, true);
+      
+      addLog("✅ Successfully switched to World Chain");
+    } catch (error) {
+      addLog(`❌ Network Switch Error: ${(error as Error).message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  // Styles for the component
   const styles = {
     container: {
-      background: "#111",
-      color: "#eee",
-      fontFamily: "monospace",
       padding: "20px",
-      minHeight: "100vh"
+      fontFamily: "monospace",
+      maxWidth: "1200px",
+      margin: "0 auto",
+      backgroundColor: "#f5f5f5",
+      borderRadius: "8px",
+      boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+    },
+    header: {
+      marginBottom: "20px",
+      borderBottom: "1px solid #ddd",
+      paddingBottom: "10px",
+    },
+    title: {
+      fontSize: "24px",
+      fontWeight: "bold",
+      color: "#333",
+      marginBottom: "5px",
+    },
+    subtitle: {
+      fontSize: "16px",
+      color: "#666",
+      marginBottom: "15px",
     },
     tabs: {
       display: "flex",
-      borderBottom: "1px solid #333",
-      marginBottom: "20px"
+      marginBottom: "20px",
+      borderBottom: "1px solid #ddd",
+      paddingBottom: "10px",
     },
     tab: {
-      padding: "10px 20px",
+      padding: "10px 15px",
+      marginRight: "10px",
       cursor: "pointer",
-      backgroundColor: "#222",
-      marginRight: "5px",
-      borderTopLeftRadius: "5px",
-      borderTopRightRadius: "5px"
+      backgroundColor: "#f0f0f0",
+      borderRadius: "5px 5px 0 0",
+      userSelect: "none" as const,
     },
     activeTab: {
-      backgroundColor: "#333",
-      borderBottom: "2px solid #0066cc"
+      backgroundColor: "#007bff",
+      color: "white",
+    },
+    section: {
+      marginBottom: "20px",
+    },
+    sectionTitle: {
+      marginBottom: "10px",
+      fontWeight: "bold",
+      fontSize: "18px",
+      color: "#333",
     },
     logContainer: {
-      border: "1px solid #333",
+      height: "300px",
+      overflowY: "auto" as const,
       padding: "10px",
-      marginTop: "20px",
-      maxHeight: "500px",
-      overflowY: "auto" as "auto" // Type assertion to fix TypeScript error
+      backgroundColor: "#1e1e1e",
+      color: "#f0f0f0",
+      borderRadius: "5px",
+      marginBottom: "15px",
+      fontFamily: "monospace",
+      fontSize: "14px",
     },
     button: {
-      backgroundColor: "#0066cc",
+      backgroundColor: "#007bff",
       color: "white",
       border: "none",
+      borderRadius: "5px",
       padding: "10px 15px",
-      borderRadius: "4px",
       cursor: "pointer",
       marginRight: "10px",
-      marginBottom: "10px"
+      marginBottom: "10px",
+      fontSize: "14px",
+      fontWeight: "bold",
+      transition: "background-color 0.2s",
     },
-    testGrid: {
-      display: "grid",
-      gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
-      gap: "15px",
-      marginBottom: "20px"
+    disabledButton: {
+      opacity: 0.6,
+      cursor: "not-allowed",
     },
-    testCard: (status: string) => ({
+    testResults: {
+      backgroundColor: "#f8f9fa",
+      padding: "10px",
+      borderRadius: "5px",
+      marginTop: "15px",
+      border: "1px solid #ddd",
+    },
+    success: { color: "#28a745" },
+    error: { color: "#dc3545" },
+    pending: { color: "#ffc107" },
+    infoCard: {
       padding: "15px",
-      borderRadius: "8px",
-      backgroundColor: 
-        status === "success" ? "#1a3a1a" :
-        status === "failure" ? "#3a1a1a" :
-        status === "running" ? "#3a3a1a" :
-        "#2a2a2a",
-      border: "1px solid",
-      borderColor:
-        status === "success" ? "#2a5a2a" :
-        status === "failure" ? "#5a2a2a" :
-        status === "running" ? "#5a5a2a" :
-        "#3a3a3a"
-    }),
-    logEntry: (level: string) => ({
-      padding: "5px 0",
-      borderBottom: "1px solid #222",
-      color: 
-        level === "ERROR" ? "#ff6666" :
-        level === "WARNING" ? "#ffcc66" :
-        "#eee"
-    }),
+      backgroundColor: "#f8f9fa",
+      borderRadius: "5px",
+      marginBottom: "20px",
+      border: "1px solid #ddd",
+    },
+    grid: {
+      display: "grid",
+      gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
+      gap: "15px",
+      marginBottom: "20px",
+    },
   };
   
   return (
-    <div className="Debug" style={styles.container}>
-      <h1>GMX Debug Information</h1>
+    <div style={styles.container}>
+      <div style={styles.header}>
+        <div style={styles.title}>GMX World Chain Diagnostics</div>
+        <div style={styles.subtitle}>Test the integration between GMX interface and World Chain</div>
+      </div>
       
-      {/* Tab Navigation */}
       <div style={styles.tabs}>
         <div 
-          style={{
-            ...styles.tab,
-            ...(activeTab === "general" ? styles.activeTab : {})
-          }}
+          style={{ ...styles.tab, ...(activeTab === "general" ? styles.activeTab : {}) }} 
           onClick={() => setActiveTab("general")}
         >
-          General Info
+          Activity Log
         </div>
         <div 
-          style={{
-            ...styles.tab,
-            ...(activeTab === "oracleKeeper" ? styles.activeTab : {})
-          }}
-          onClick={() => setActiveTab("oracleKeeper")}
+          style={{ ...styles.tab, ...(activeTab === "diagnostics" ? styles.activeTab : {}) }} 
+          onClick={() => setActiveTab("diagnostics")}
         >
-          Oracle Keeper
+          Diagnostics Tools
         </div>
       </div>
       
-      {/* General Debug Tab */}
       {activeTab === "general" && (
         <div>
-          <h2>System Information</h2>
-          <div style={styles.logContainer}>
-            {logs.map((log, index) => (
-              <div key={index} style={{ marginBottom: "5px" }}>{log}</div>
-            ))}
+          <div style={styles.section}>
+            <div style={styles.sectionTitle}>Activity Logs</div>
+            <div style={styles.logContainer}>
+              {logs.map((log, index) => (
+                <div key={index}>{log}</div>
+              ))}
+            </div>
+          </div>
+          
+          <div style={styles.section}>
+            <div style={styles.sectionTitle}>Network Status</div>
+            <div style={styles.infoCard}>
+              <p>{networkStatus || "Not tested yet"}</p>
+            </div>
           </div>
         </div>
       )}
       
-      {/* Oracle Keeper Debug Tab */}
-      {activeTab === "oracleKeeper" && (
+      {activeTab === "diagnostics" && (
         <div>
-          <h2>Oracle Keeper Diagnostics</h2>
-          <button 
-            style={styles.button}
-            onClick={runOracleKeeperDiagnostics}
-            disabled={isTestingOracleKeeper}
-          >
-            {isTestingOracleKeeper ? "Running Tests..." : "Run Diagnostics"}
-          </button>
-          
-          {/* Test Status Cards */}
-          <div style={styles.testGrid}>
-            <div style={styles.testCard(oracleKeeperStatus.healthCheck || "idle")}>
-              <h3>Health Check</h3>
-              <p>Verifies the Oracle Keeper is responsive</p>
-              <div>
-                {oracleKeeperStatus.healthCheck === "success" && "✓ Success"}
-                {oracleKeeperStatus.healthCheck === "failure" && "✗ Failed"}
-                {oracleKeeperStatus.healthCheck === "running" && "⟳ Running..."}
-                {!oracleKeeperStatus.healthCheck && "Not run yet"}
-              </div>
-            </div>
-            
-            <div style={styles.testCard(oracleKeeperStatus.cache || "idle")}>
-              <h3>Cache System</h3>
-              <p>Tests the caching mechanism</p>
-              <div>
-                {oracleKeeperStatus.cache === "success" && "✓ Success"}
-                {oracleKeeperStatus.cache === "failure" && "✗ Failed"}
-                {oracleKeeperStatus.cache === "running" && "⟳ Running..."}
-                {!oracleKeeperStatus.cache && "Not run yet"}
-              </div>
-            </div>
-            
-            <div style={styles.testCard(oracleKeeperStatus.fetch || "idle")}>
-              <h3>Fetch API</h3>
-              <p>Tests network fetching with retries</p>
-              <div>
-                {oracleKeeperStatus.fetch === "success" && "✓ Success"}
-                {oracleKeeperStatus.fetch === "failure" && "✗ Failed"}
-                {oracleKeeperStatus.fetch === "running" && "⟳ Running..."}
-                {!oracleKeeperStatus.fetch && "Not run yet"}
-              </div>
-            </div>
-            
-            <div style={styles.testCard(oracleKeeperStatus.keeper || "idle")}>
-              <h3>Robust Oracle Keeper</h3>
-              <p>Tests the core Oracle Keeper component</p>
-              <div>
-                {oracleKeeperStatus.keeper === "success" && "✓ Success"}
-                {oracleKeeperStatus.keeper === "failure" && "✗ Failed"}
-                {oracleKeeperStatus.keeper === "running" && "⟳ Running..."}
-                {!oracleKeeperStatus.keeper && "Not run yet"}
-              </div>
-            </div>
-            
-            <div style={styles.testCard(oracleKeeperStatus.fallback || "idle")}>
-              <h3>Fallback Behavior</h3>
-              <p>Tests fallback mechanisms</p>
-              <div>
-                {oracleKeeperStatus.fallback === "success" && "✓ Success"}
-                {oracleKeeperStatus.fallback === "failure" && "✗ Failed"}
-                {oracleKeeperStatus.fallback === "running" && "⟳ Running..."}
-                {!oracleKeeperStatus.fallback && "Not run yet"}
-              </div>
+          <div style={styles.section}>
+            <div style={styles.sectionTitle}>Diagnostics Tools</div>
+            <div>
+              <button 
+                style={{ 
+                  ...styles.button, 
+                  ...(isLoading ? styles.disabledButton : {}) 
+                }} 
+                onClick={() => void testRpcConnection()} 
+                disabled={isLoading}
+              >
+                Test RPC Connection
+              </button>
+              
+              <button 
+                style={{ 
+                  ...styles.button, 
+                  ...(isLoading ? styles.disabledButton : {}) 
+                }} 
+                onClick={() => void testContractAddresses()} 
+                disabled={isLoading}
+              >
+                Validate Contract Addresses
+              </button>
+              
+              <button 
+                style={{ 
+                  ...styles.button, 
+                  ...(isLoading ? styles.disabledButton : {}) 
+                }} 
+                onClick={() => void testOracleKeeper()} 
+                disabled={isLoading}
+              >
+                Test Oracle Keeper
+              </button>
+              
+              <button 
+                style={{ 
+                  ...styles.button, 
+                  ...(isLoading ? styles.disabledButton : {}) 
+                }} 
+                onClick={() => void testNetworkSwitching()} 
+                disabled={isLoading}
+              >
+                Test Network Switching
+              </button>
             </div>
           </div>
           
-          {/* Log Output */}
-          <h3>Diagnostic Logs ({oracleKeeperLogs.length})</h3>
-          <div style={{
-            ...styles.logContainer,
-            overflowY: "auto" as "auto" // Type assertion to fix TypeScript error
-          }}>
-            {oracleKeeperLogs.length === 0 ? (
-              <div>No logs yet. Run diagnostics to see output.</div>
-            ) : (
-              oracleKeeperLogs.map((log, index) => (
-                <div key={index} style={styles.logEntry(log.level)}>
-                  <span style={{ color: "#999" }}>[{new Date(log.timestamp).toLocaleTimeString()}]</span> <span style={{ color: "#66ccff" }}>[{log.module}]</span> <span style={{ fontWeight: "bold" }}>[{log.level}]</span> {log.message}
-                  {log.data && (
-                    <div style={{ marginLeft: "20px", fontSize: "12px", color: "#aaa" }}>
-                      {typeof log.data === "object" ? 
-                        JSON.stringify(log.data, null, 2) : 
-                        String(log.data)
-                      }
-                    </div>
+          {isLoading && (
+            <div style={styles.section}>
+              <p style={styles.pending}>⏳ Testing in progress...</p>
+            </div>
+          )}
+          
+          <div style={styles.section}>
+            <div style={styles.sectionTitle}>Contract Addresses</div>
+            <div style={styles.infoCard}>
+              {Object.keys(contractAddresses).length > 0 ? (
+                <ul>
+                  {Object.entries(contractAddresses).map(([name, address]) => (
+                    <li key={name}>
+                      <strong>{name}:</strong> {address}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p>No contract addresses loaded</p>
+              )}
+            </div>
+          </div>
+          
+          <div style={styles.grid}>
+            {oracleStatus && (
+              <div style={styles.section}>
+                <div style={styles.sectionTitle}>Oracle Keeper Status</div>
+                <div style={styles.testResults}>
+                  <p>
+                    <strong>Health:</strong> 
+                    <span style={oracleStatus.isHealthy ? styles.success : styles.error}>
+                      {oracleStatus.isHealthy ? "✅ Healthy" : "❌ Unhealthy"}
+                    </span>
+                  </p>
+                  {oracleStatus.details && (
+                    <pre style={{ maxHeight: "200px", overflow: "auto", fontSize: "12px" }}>
+                      {JSON.stringify(oracleStatus.details, null, 2)}
+                    </pre>
                   )}
                 </div>
-              ))
+              </div>
+            )}
+            
+            {tokenPrices && (
+              <div style={styles.section}>
+                <div style={styles.sectionTitle}>Token Prices</div>
+                <div style={styles.testResults}>
+                  <ul>
+                    {Object.entries(tokenPrices).map(([token, price]) => (
+                      <li key={token}>
+                        <strong>{token}:</strong> ${typeof price === "number" ? price.toFixed(2) : price}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
             )}
           </div>
         </div>

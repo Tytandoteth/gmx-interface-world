@@ -7,6 +7,11 @@ export {
 } from './worldChainDevMode';
 
 export {
+  initWorldChainConfig,
+  isWorldChainConfigInitialized
+} from './initConfig';
+
+export {
   initWorldChainMetrics
 } from './worldChainMetrics';
 

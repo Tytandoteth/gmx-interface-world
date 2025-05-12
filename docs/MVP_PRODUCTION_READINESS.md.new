@@ -1,0 +1,372 @@
+# Production MVP Readiness Guide
+
+**File Path:** `/Users/tyblackard/Documents/Windsurf/gmx-interface-world/docs/MVP_PRODUCTION_READINESS.md`
+**Last Updated:** May 11, 2025
+
+---
+
+## Objective
+
+Provide a single, comprehensive living document to guide all three World Chain GMX repositories (Smart Contracts, Oracle Keeper, Frontend Interface) through production-ready MVP deployment with live data.
+
+---
+
+## Document Contents
+
+1. Project Scope
+2. Repository Responsibilities
+3. Repository Status & Immediate Next Steps
+4. Integration Points
+5. Production Readiness Checklist
+6. Testing Protocol
+7. Deployment Quick Reference
+8. Environment Variables Reference
+9. Troubleshooting Guide
+10. Monitoring & Alerting
+11. Action Items & Ownership
+12. Additional Handoff Details
+13. Communication & Reporting
+14. Definition of Done
+15. Contact Information
+
+---
+
+## 1. Project Scope
+
+* Deploy and maintain a GMX-derived perpetual trading platform on World Chain.
+* Support trading pairs: WLD, WETH, MAG.
+* Provide robust, multi-source oracle infrastructure with RedStone/Witnet fallbacks.
+* Simplify the UI into a lightweight, performant mini-app.
+* Ensure high reliability, security, and observable operations in production.
+
+---
+
+## 2. Repository Responsibilities
+
+**A. Smart Contracts (`gmx-contracts-world`)**
+
+* Core GMX components: Vault, Router, OrderBook, PositionRouter/Manager, Trackers.
+* Integration with RedStonePriceFeed contract.
+* Deployment & configuration scripts (Hardhat).
+
+**B. Oracle Keeper (`redstone-oracle-keeper`)**
+
+* Cloudflare Workers-based middleware providing `/prices` and `/health` endpoints.
+* Live feeds for WLD/USD, WETH/USD, MAG/USD with fallback to CoinGecko.
+* Diagnostic UI, health checks, retry logic.
+
+**C. Frontend Interface (`gmx-interface-world`)**
+
+* React/TypeScript trading UI consuming contracts and oracle service.
+* EnhancedOracleKeeperFetcher for data retrieval.
+* RedStone SDK wrappers for transaction calls.
+* Debug pages, status indicators, and mode toggle (dev/prod).
+
+---
+
+## 3. Repository Status & Immediate Next Steps
+
+### Smart Contracts (gmx-contracts-world)
+
+**Status:** ⚠️ Transition Phase
+
+* Contracts deployed with mock feeds.
+* Core infrastructure verified.
+* Tokens (WLD, WETH, MAG) not whitelisted in Vault.
+
+**Next Steps:**
+
+1. **Install & configure RedStone SDK**
+
+   ```bash
+   npm install @redstone-finance/evm-connector
+   ```
+2. **Switch to live price feeds**
+
+   ```bash
+   npx hardhat run scripts/world/switchToLivePriceFeeds.js --network worldchain
+   ```
+3. **Whitelist tokens in Vault**
+
+   ```bash
+   npx hardhat run scripts/world/whitelistTokensWithRedStone.js --network worldchain
+   ```
+4. **Verify deployment**
+
+   ```bash
+   npx hardhat run scripts/world/verifyCompleteDeploymentFixed.js --network worldchain
+   ```
+
+### Oracle Keeper (redstone-oracle-keeper)
+
+**Status:** ⚠️ Development Mode
+
+* Mock prices for WLD ($1.25), WETH ($3,000), MAG pending.
+* Health endpoint and debug UI live on Cloudflare Worker.
+
+**Next Steps:**
+
+1. **Configure production `.env`**
+
+   ```toml
+   USE_MOCK_PRICES=false
+   REDSTONE_API_KEY=<your_key>
+   RPC_URL=https://sleek-little-leaf.worldchain-mainnet.quiknode.pro/...  
+   CHAIN_ID=480
+   SUPPORTED_TOKENS=WLD,WETH,MAG
+   ```
+2. **Deploy to production** (Heroku/Cloudflare Workers/AWS)
+3. **Enable monitoring & alerts** (e.g. Datadog/Grafana integrations)
+
+### Frontend Interface (gmx-interface-world)
+
+**Status:** ⚠️ Not Production Ready
+
+* Basic UI and world‑chain context exist.
+* Missing contract integration and live price data.
+
+**Next Steps:**
+
+1. **Install RedStone SDK**
+
+   ```bash
+   npm install @redstone-finance/evm-connector
+   ```
+2. **Wrap contract calls** (see utilities example)
+3. **Update `.env.production`** with deployed addresses & Oracle Keeper URL
+4. **Point to live endpoints** and disable mock mode
+5. **End‑to‑end testing** (swaps, leveraged positions, orders)
+
+---
+
+## 4. Integration Points
+
+```
+┌─────────────────────┐     ┌─────────────────────┐     ┌─────────────────────┐
+│                     │     │                     │     │                     │
+│  RedStone/Witnet    │────▶│  Oracle Keeper      │────▶│  GMX Interface      │
+│  Price Feeds        │     │  Service (API)      │     │  (Frontend)         │
+│                     │     │                     │     │                     │
+└─────────────────────┘     └─────────────────────┘     └─────────────────────┘
+         │                           │                           │
+         │                           │                           │
+         ▼                           ▼                           ▼
+   World Chain RPC  ◀──────────  GMX Contracts  ◀───────────┘
+```
+
+* **Oracle Keeper ↔ Contracts:** oracle service must know contract addresses for on‑chain data fetch.
+* **Interface ↔ Contracts:** UI must import ABIs and address constants matching deployed on mainnet.
+* **Interface ↔ Oracle:** fetch price data, reflect health/status, and surface fallback errors.
+
+---
+
+## 5. Production Readiness Checklist
+
+* [ ] **Contract Deployment**: Mainnet deployment completed & verified.
+* [ ] **Token Whitelisting**: WLD, WETH, MAG enabled in Vault.
+* [ ] **Oracle Keeper**: Live feeds serving accurate prices; `/health` returns `isHealthy: true`.
+* [ ] **Frontend**: Connected to World Chain, live price integration verified.
+* [ ] **End‑to‑End Flow**: Swaps, long/short positions, limit orders, and liquidations work.
+* [ ] **Security Reviews**: Contracts audited, key management in place.
+* [ ] **Monitoring**: Metrics dashboards and alerts configured.
+* [ ] **Documentation**: READMEs, ARCHITECTURE.md, TROUBLESHOOTING.md up to date.
+
+---
+
+## 6. Testing Protocol
+
+### Oracle Keeper Tests
+
+1. **Health Check**
+
+   ```bash
+   curl https://oracle-keeper.kevin8396.workers.dev/health
+   ```
+2. **Price Endpoint**
+
+   ```bash
+   curl https://oracle-keeper.kevin8396.workers.dev/prices
+   ```
+
+* Verify tokens (WLD, WETH, MAG) return sane values and `source != 'mock'.`
+
+### Smart Contracts Tests
+
+* Unit tests coverage ≥ 90% (Vault, Router, PositionRouter).
+* Integration tests for price feed wrap calls.
+* Hardhat for forked mainnet simulation.
+
+### Frontend Tests
+
+* Cypress/E2E: login, market load, trade flows.
+* Jest/React Testing Library: critical components (Oracle status, TradeForm).
+* Manual QA: responsive UI, error modals, fallback messaging.
+
+---
+
+## 7. Deployment Quick Reference
+
+### Smart Contracts
+
+```bash
+npm install
+npm install @redstone-finance/evm-connector
+npx hardhat run scripts/world/switchToLivePriceFeeds.js --network worldchain
+npx hardhat run scripts/world/whitelistTokensWithRedStone.js --network worldchain
+```
+
+### Oracle Keeper
+
+```bash
+npm install
+# configure .env.production
+npm run build
+wrangler publish   # for Cloudflare
+# or heroku deploy
+```
+
+### Frontend Interface
+
+```bash
+npm install
+npm install @redstone-finance/evm-connector
+# set .env.production
+npm run build
+npm run deploy    # e.g., Netlify/Vercel CLI
+```
+
+---
+
+## 8. Environment Variables Reference
+
+### Oracle Keeper (`.env.production`)
+
+```toml
+USE_MOCK_PRICES=false
+REDSTONE_API_KEY=<key>
+RPC_URL=https://sleek-little-leaf.worldchain-mainnet.quiknode.pro/...
+CHAIN_ID=480
+SUPPORTED_TOKENS=WLD,WETH,MAG
+PORT=3000
+```
+
+### Frontend Interface (`.env.production`)
+
+```bash
+VITE_WORLD_RPC_URL=https://rpc.world-chain.com/v1/mainnet
+VITE_ORACLE_KEEPER_URL=https://oracle-keeper.kevin8396.workers.dev
+VITE_VAULT_ADDRESS=0x6519E08ecC9B2763FbEf360132a8303dc2E9ccE5
+VITE_ROUTER_ADDRESS=0x1958F6Cba8eb87902bDc1805A2a3bD5842BE645b
+VITE_POSITION_ROUTER_ADDRESS=0x566e66c17a6DfE5B0964fA0AFC85cF3cc5963dAF
+VITE_POSITION_MANAGER_ADDRESS=0x0AC8566466e68678d2d32F625d2d3CD9e6cf088D
+VITE_USE_PRODUCTION_MODE=true
+```
+
+---
+
+## 9. Troubleshooting Guide
+
+### Price Feed Failures
+
+* **Symptoms**: Transactions revert with price error.
+* **Checks**:
+
+  1. Oracle Keeper health (should show `mode: live`).
+  2. Contract wrapping via RedStone SDK.
+
+### Whitelisting Errors
+
+* **Symptoms**: Vault.setTokenConfig reverts.
+* **Fix**: Ensure RedStonePriceFeed is primary; wrap calls; retry scripts.
+
+### RPC Connection Issues
+
+* **Symptoms**: UI cannot load markets.
+* **Fix**: Validate `WORLD_RPC_URL`, chain ID = 480, CORS on RPC endpoint.
+
+---
+
+## 10. Monitoring & Alerting
+
+* **Oracle Keeper**: Uptime, response latency, error rate (Datadog/Grafana).
+* **Contracts**: Gas usage, failed txs (Tenderly).
+* **UI**: Client error logs, performance traces (Sentry).
+* **Alerts**: Slack notifications for critical thresholds.
+
+---
+
+## 11. Personal Responsibilities
+
+*All deliverables and tasks are managed solely by Ty B ([ty@siestamarkets.com](mailto:ty@siestamarkets.com)).*
+
+* **Smart Contracts**: Implement live price feed scripts, whitelist tokens, verify production deployment
+* **Oracle Keeper**: Configure production environment, deploy service, enable monitoring
+* **Frontend Interface**: Integrate contract wrappers, configure environment, perform E2E testing
+
+---
+
+## 12. Development Notes & References
+
+This guide integrates with your local and cloud environments:
+
+* **Local Doc Path**: `/Users/tyblackard/Documents/Windsurf/gmx-interface-world/docs/MVP_PRODUCTION_READINESS.md`
+* **Environment Templates**: Ensure `.env.production` and `.env.local` match above references.
+* **CI/CD Templates**: Reuse shared pipeline configs in `./ci/` directory.
+
+Use this section for quick links to any personal snippets, helper scripts, or dashboards you maintain.
+
+---
+
+## 13. Personal Cadence & Progress Tracking
+
+As the sole contributor, establish a consistent self-review rhythm:
+
+* **Daily Update**: At end of day, check off completed items in the checklist and update statuses.
+* **Weekly Review**: Every Friday, review overall progress, adjust priorities, and refine tasks.
+* **Versioning**: Commit document updates alongside code changes, tag with version (e.g., `v1.0-mvp-prod`).
+
+---
+
+## 14. Definition of Done
+
+Additional Handoff Details
+
+Refer to the original Unified Roadmap for:
+
+* Roles & Responsibilities
+* Environment & Dependencies
+* CI/CD & Deployment Templates
+* Testing Strategy
+* Security & Compliance Checklist
+* Documentation & Knowledge Base links
+
+---
+
+## 13. Communication & Reporting
+
+* **Sync Cadence**: Weekly standups (Mon 10:00 AM local).
+* **Channels**: Slack `#gmx-worldchain`, Jira board `GMXWC`.
+* **Status Reports**: Use template in `docs/status_report.md`, update every Friday.
+
+---
+
+## 14. Definition of Done
+
+Each phase is complete when:
+
+* All acceptance criteria met (unit/integration tests, docs updated).
+* PRs reviewed & merged, deploy pipelines green.
+* QA sign‑off on functionality and performance.
+
+---
+
+## 15. Contact Information
+
+* **Smart Contracts Repo**: [https://github.com/Tytandoteth/gmx-contracts-world](https://github.com/Tytandoteth/gmx-contracts-world)
+* **Oracle Keeper Repo**: [https://github.com/Tytandoteth/redstone-oracle-keeper](https://github.com/Tytandoteth/redstone-oracle-keeper)
+* **Frontend Repo**: [https://github.com/Tytandoteth/gmx-interface-world](https://github.com/Tytandoteth/gmx-interface-world)
+* **Project Lead**: Ty B (`ty@siestamarkets.com`)
+
+---
+
+> *This guide is the single source of truth for achieving a production-ready MVP. Update it continuously as milestones are completed.*

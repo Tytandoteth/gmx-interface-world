@@ -3,11 +3,10 @@
  * This module defines token metadata for World Chain
  */
 
-import { ethers } from "ethers";
-import { WORLD } from "sdk/configs/chains";
 import { TokensData, TokenData, TokenPrices } from "domain/synthetics/tokens";
-import { isWorldChain } from "./worldChainDevMode";
-import { WorldChainConfig } from "./worldChainDevMode";
+import { WORLD as _WORLD } from "sdk/configs/chains";
+
+import { isWorldChain, WorldChainConfig } from "./worldChainDevMode";
 
 /**
  * Convert a price number to a BigInt with proper precision for TokenPrices
@@ -32,7 +31,7 @@ function createTokenPrices(price: number): TokenPrices {
       maxPrice: priceBigInt
     };
   } catch (error) {
-    console.warn("[World Chain] Error creating token prices:", error);
+    console.warn("[World Chain] Error creating token prices:", error instanceof Error ? error.message : String(error));
     // Return a safe fallback
     const fallbackPrice = convertPriceToBigInt(WorldChainConfig.defaultPrices.DEFAULT);
     return {
@@ -42,28 +41,48 @@ function createTokenPrices(price: number): TokenPrices {
   }
 }
 
-// World Chain native token address
-export const WORLD_NATIVE_TOKEN = "0x1eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee1"; // WLD
+// World Chain token addresses
+// Changed the native token to ETH to match MetaMask expectations
+export const WORLD_NATIVE_TOKEN = "0x1eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee2"; // ETH (native token)
 export const WORLD_USDC_TOKEN = "0x2eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee1"; // USDC
+export const WORLD_WLD_TOKEN = "0x1eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee1"; // WLD
 export const WORLD_ETH_TOKEN = "0x1eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee2"; // ETH
 export const WORLD_BTC_TOKEN = "0x1eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee3"; // BTC
+export const WORLD_WBTC_TOKEN = "0x1eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee4"; // WBTC
 export const WORLD_USDT_TOKEN = "0x2eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee2"; // USDT
+export const WORLD_MAG_TOKEN = "0x2eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee3"; // MAG (Magic Token)
 
 /**
  * World Chain token metadata and prices
  * This fully conforms to the TokenData interface requirements
  */
 const WORLD_CHAIN_TOKEN_INFO = {
+  // ETH is now the native token for World Chain
   [WORLD_NATIVE_TOKEN]: {
-    name: "World",
-    symbol: "WLD",
+    name: "Ethereum (Native)",
+    symbol: "ETH",
     decimals: 18,
     address: WORLD_NATIVE_TOKEN,
     isNative: true,
     isShortable: true,
+    isV2: true,
+    imageUrl: "https://assets.coingecko.com/coins/images/279/small/ethereum.png",
+    coingeckoUrl: "https://www.coingecko.com/en/coins/ethereum",
+    explorerUrl: "https://explorer.world.com/token/" + WORLD_NATIVE_TOKEN,
+    // Default price from config
+    defaultPrice: WorldChainConfig.defaultPrices.ETH
+  },
+  // WLD token (no longer native)
+  [WORLD_WLD_TOKEN]: {
+    name: "World",
+    symbol: "WLD",
+    decimals: 18,
+    address: WORLD_WLD_TOKEN,
+    isShortable: true,
+    isV2: true,
     imageUrl: "https://assets.coingecko.com/coins/images/31069/standard/WorldCoin.png",
     coingeckoUrl: "https://www.coingecko.com/en/coins/worldcoin",
-    explorerUrl: "https://explorer.world.com/token/" + WORLD_NATIVE_TOKEN,
+    explorerUrl: "https://explorer.world.com/token/" + WORLD_WLD_TOKEN,
     // Default price from config
     defaultPrice: WorldChainConfig.defaultPrices.WLD
   },
@@ -80,9 +99,10 @@ const WORLD_CHAIN_TOKEN_INFO = {
     // Default price from config
     defaultPrice: WorldChainConfig.defaultPrices.USDC
   },
-  [WORLD_ETH_TOKEN]: {
-    name: "Ethereum",
-    symbol: "ETH",
+  // Using a unique identifier for WETH to avoid duplicate property error
+  [`${WORLD_ETH_TOKEN}-wrapped`]: {
+    name: "Wrapped Ethereum",
+    symbol: "WETH",
     decimals: 18,
     address: WORLD_ETH_TOKEN,
     isShortable: true,
@@ -118,6 +138,34 @@ const WORLD_CHAIN_TOKEN_INFO = {
     explorerUrl: "https://explorer.world.com/token/" + WORLD_USDT_TOKEN,
     // Default price from config
     defaultPrice: WorldChainConfig.defaultPrices.USDT
+  },
+  // Magic (MAG) token
+  [WORLD_MAG_TOKEN]: {
+    name: "Magic",
+    symbol: "MAG",
+    decimals: 18,
+    address: WORLD_MAG_TOKEN,
+    isShortable: true,
+    isV2: true,
+    imageUrl: "https://assets.coingecko.com/coins/images/18623/standard/magic.png",
+    coingeckoUrl: "https://www.coingecko.com/en/coins/magic",
+    explorerUrl: "https://explorer.world.com/token/" + WORLD_MAG_TOKEN,
+    // Default price from config
+    defaultPrice: WorldChainConfig.defaultPrices.MAG || 2.50
+  },
+  // WBTC token
+  [WORLD_WBTC_TOKEN]: {
+    name: "Wrapped Bitcoin",
+    symbol: "WBTC",
+    decimals: 8,
+    address: WORLD_WBTC_TOKEN,
+    isShortable: true, 
+    isV2: true,
+    imageUrl: "https://assets.coingecko.com/coins/images/7598/standard/wrapped_bitcoin_wbtc.png",
+    coingeckoUrl: "https://www.coingecko.com/en/coins/wrapped-bitcoin",
+    explorerUrl: "https://explorer.world.com/token/" + WORLD_WBTC_TOKEN,
+    // Default price from config
+    defaultPrice: WorldChainConfig.defaultPrices.BTC || 55000.00
   },
 };
 
@@ -184,7 +232,7 @@ export function getWorldChainTokensData(existingData: TokensData | Record<string
     // Validate that all of our predefined tokens have valid prices
     Object.entries(worldChainTokens).forEach(([address, tokenData]) => {
       if (!tokenData.prices || !tokenData.prices.minPrice || !tokenData.prices.maxPrice) {
-        console.warn(`[World Chain] Token ${address} missing valid prices, adding default prices`);
+        console.warn("[World Chain] Token address not found in WORLD_CHAIN_TOKEN_INFO:", address);
         worldChainTokens[address] = {
           ...tokenData,
           prices: createTokenPrices(WorldChainConfig.defaultPrices.DEFAULT)
@@ -194,7 +242,7 @@ export function getWorldChainTokensData(existingData: TokensData | Record<string
     
     // If we have existing data, merge it with our token data
     if (existingData && Object.keys(existingData).length > 0) {
-      console.debug("[World Chain] Merging existing token data with World Chain tokens");
+      // Merging existing token data with World Chain tokens
       
       Object.entries(existingData).forEach(([address, tokenData]) => {
         try {
@@ -229,7 +277,7 @@ export function getWorldChainTokensData(existingData: TokensData | Record<string
             }
           }
         } catch (err) {
-          console.warn(`[World Chain] Error processing token ${address}:`, err);
+          console.error(`[World Chain] Error processing token ${address}:`, err);
         }
       });
     }
