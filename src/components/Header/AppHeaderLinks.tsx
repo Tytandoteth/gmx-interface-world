@@ -4,6 +4,7 @@ import { FiX } from "react-icons/fi";
 import { Link } from "react-router-dom";
 
 import { isHomeSite } from "lib/legacy";
+import { isDevelopment } from "config/env";
 import { useNotifyModalState } from "lib/useNotifyModalState";
 import { userAnalytics } from "lib/userAnalytics";
 import { ReferralTopMenuClickEvent } from "lib/userAnalytics/types";
@@ -97,6 +98,28 @@ export function AppHeaderLinks({ small, openSettings, clickCloseIcon, showRedire
           <Trans>Docs</Trans>
         </ExternalLink>
       </div>
+      
+      {/* World Chain specific links - only visible in production or with production mode enabled */}
+      {(isDevelopment || import.meta.env.VITE_USE_PRODUCTION_MODE === 'true') && (
+        <div className="App-header-link-container">
+          <div className="header-dropdown">
+            <div className="header-dropdown-label">
+              <Trans>World Chain</Trans>
+            </div>
+            <div className="header-dropdown-menu">
+              <HeaderLink to="/worldchain/contract-testing" className="header-dropdown-link" showRedirectModal={showRedirectModal}>
+                <Trans>Contract Testing</Trans>
+              </HeaderLink>
+              <HeaderLink to="/worldchain/dev-tools" className="header-dropdown-link" showRedirectModal={showRedirectModal}>
+                <Trans>Dev Tools</Trans>
+              </HeaderLink>
+              <HeaderLink to="/worldchain/price-feed" className="header-dropdown-link" showRedirectModal={showRedirectModal}>
+                <Trans>Price Feed</Trans>
+              </HeaderLink>
+            </div>
+          </div>
+        </div>
+      )}
       {small && (
         <div className="App-header-link-container">
           <a href="#" onClick={openNotifyModal}>

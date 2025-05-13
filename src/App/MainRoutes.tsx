@@ -16,6 +16,7 @@ import Debug from "components/Debug/Debug";
 import TestingPanel from "components/WorldChainDevMode/TestingPanel";
 
 import WorldChainDevTools from "pages/DevTools/WorldChainDevTools";
+import ContractTestingPage from "pages/ContractTesting/ContractTestingPage";
 import { AccountsRouter } from "pages/Actions/ActionsRouter";
 import BeginAccountTransfer from "pages/BeginAccountTransfer/BeginAccountTransfer";
 import Buy from "pages/Buy/Buy";
@@ -136,6 +137,9 @@ export function MainRoutes({ openSettings }: { openSettings: () => void }) {
       {/* World Chain specific tools */}
       <Route exact path="/worldchain/dev-tools">
         <WorldChainDevTools />
+      </Route>
+      <Route exact path="/worldchain/contract-testing">
+        <ContractTestingPage />
       </Route>
       <Route exact path="/redstone-test">
         <RedstoneTestPage />

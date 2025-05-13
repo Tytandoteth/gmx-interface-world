@@ -3,12 +3,8 @@ import { Signer, ethers } from "ethers";
 import { useEffect, useState } from "react";
 
 import {
-  ARBITRUM,
-  AVALANCHE,
-  AVALANCHE_FUJI,
   WORLD,
   FALLBACK_PROVIDERS,
-  getAlchemyArbitrumWsUrl,
   getFallbackRpcUrl,
 } from "config/chains";
 import { isDevelopment } from "config/env";
@@ -34,16 +30,8 @@ export function getProvider(signer: Signer | undefined, chainId: number): ethers
 export function getWsProvider(chainId: number): WebSocketProvider | JsonRpcProvider | undefined {
   const network = Network.from(chainId);
 
-  if (chainId === ARBITRUM) {
-    return new ethers.WebSocketProvider(getAlchemyArbitrumWsUrl(), network, { staticNetwork: network });
-  }
-
-  if (chainId === AVALANCHE) {
-    return new ethers.WebSocketProvider("wss://api.avax.network/ext/bc/C/ws", network, { staticNetwork: network });
-  }
-
-  if (chainId === AVALANCHE_FUJI) {
-    const provider = new ethers.JsonRpcProvider(getCurrentRpcUrls(AVALANCHE_FUJI).primary, network, {
+  if (chainId === WORLD) {
+    const provider = new ethers.JsonRpcProvider(getCurrentRpcUrls(WORLD).primary, network, {
       staticNetwork: network,
     });
     provider.pollingInterval = 2000;

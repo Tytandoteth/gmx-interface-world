@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
-import type { JsonRpcProvider } from '@ethersproject/providers';
+import React, { useState, useEffect } from 'react';
 
 import { useChainId } from 'lib/chains';
 import { logger } from 'lib/oracleKeeperFetcher/oracleKeeperUtils.new';
@@ -19,7 +18,8 @@ import { getWorldChainProvider } from 'lib/worldchain/providers';
 export const WorldChainTester: React.FC = () => {
   const { chainId } = useChainId();
   const [collapsed, setCollapsed] = useState(false);
-  const [provider, setProvider] = useState<JsonRpcProvider | null>(null);
+  // Use ethers.JsonRpcProvider type instead of imported one to avoid type conflicts
+  const [provider, setProvider] = useState<ethers.JsonRpcProvider | null>(null);
   const [account, setAccount] = useState<string | null>(null);
   const [tokenBalances, setTokenBalances] = useState<{[symbol: string]: string}>({});
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
@@ -41,13 +41,15 @@ export const WorldChainTester: React.FC = () => {
         setRpcStatus('connecting');
         setError(null);
         
-        // Use our standardized provider utility
-        const newProvider = getWorldChainProvider();
+        // Create provider
+        const rpcUrl = 'https://sleek-little-leaf.worldchain-mainnet.quiknode.pro/49cff082c3f8db6bc60bd05d7256d2fda94a42cd/';
+        const newProvider = new ethers.JsonRpcProvider(rpcUrl);
         
         // Verify connection by getting the latest block
         const blockNumber = await newProvider.getBlockNumber();
         setLatestBlock(blockNumber);
         
+        // Update provider state
         setProvider(newProvider);
         setRpcStatus('connected');
         logger.info(`[WorldChainTester] Connected to RPC, latest block: ${blockNumber}`);
@@ -148,12 +150,16 @@ export const WorldChainTester: React.FC = () => {
           "function decimals() view returns (uint8)"
         ];
         
+        // Make sure provider is valid before creating contract
+        if (!provider) continue;
+        // In ethers v6, JsonRpcProvider implements ContractRunner interface
         const tokenContract = new ethers.Contract(token.address, erc20Abi, provider);
         const balance = await tokenContract.balanceOf(walletAddress);
         const decimals = await tokenContract.decimals();
         
         // Format the balance with proper decimals
-        const formattedBalance = ethers.utils.formatUnits(balance, decimals);
+        // In ethers v6, formatUnits is a direct import from ethers
+        const formattedBalance = ethers.formatUnits(balance, decimals);
         balances[token.symbol] = formattedBalance;
       } catch (error) {
         logger.error(`[WorldChainTester] Failed to fetch balance for ${token.symbol}:`, error);

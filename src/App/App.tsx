@@ -26,6 +26,7 @@ import { TokensFavoritesContextProvider } from "context/TokensFavoritesContext/T
 import { WebsocketContextProvider } from "context/WebsocketContext/WebsocketContextProvider";
 import { WorldChainProvider } from "context/WorldChainContext";
 import { WorldChainV1Provider } from "context/WorldChainV1Context";
+import { WorldChainTradingProvider } from "lib/worldchain/WorldChainTradingProvider";
 import { useChainId } from "lib/chains";
 import { defaultLocale, dynamicActivate } from "lib/i18n";
 import { RainbowKitProviderWrapper } from "lib/wallets/WalletProvider";
@@ -59,6 +60,17 @@ function App() {
   // Initialize World Chain configuration and settings
   // This ensures Oracle Keeper and contract settings are properly configured
   useEffect(() => {
+    // Log the environment variables for contracts
+    console.log("World Chain Environment:", {
+      VAULT_ADDRESS: import.meta.env.VITE_VAULT_ADDRESS,
+      ROUTER_ADDRESS: import.meta.env.VITE_ROUTER_ADDRESS,
+      POSITION_ROUTER_ADDRESS: import.meta.env.VITE_POSITION_ROUTER_ADDRESS,
+      POSITION_MANAGER_ADDRESS: import.meta.env.VITE_POSITION_MANAGER_ADDRESS,
+      ORACLE_KEEPER_URL: import.meta.env.VITE_ORACLE_KEEPER_URL,
+      RPC_URL: import.meta.env.VITE_WORLD_RPC_URL,
+      PRODUCTION_MODE: import.meta.env.VITE_USE_PRODUCTION_MODE,
+    });
+
     // Initialize WorldChainConfig first to ensure it's ready for all components
     // This prevents "Cannot read property 'feature_flags' of undefined" errors
     initWorldChainConfig();
@@ -96,6 +108,7 @@ function App() {
   app = <WebsocketContextProvider>{app}</WebsocketContextProvider>;
   app = <WorldChainProvider>{app}</WorldChainProvider>;
   app = <WorldChainV1Provider>{app}</WorldChainV1Provider>;
+  app = <WorldChainTradingProvider>{app}</WorldChainTradingProvider>;
   app = <OraclePricesProvider pollInterval={15000}>{app}</OraclePricesProvider>;
   app = <SEO>{app}</SEO>;
   app = <RainbowKitProviderWrapper>{app}</RainbowKitProviderWrapper>;

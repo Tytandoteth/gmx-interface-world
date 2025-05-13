@@ -2,6 +2,7 @@ import { Trans, msg, t } from "@lingui/macro";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { ethers } from "ethers";
 import { useEffect, useMemo, useState } from "react";
+import { WORLD } from "../../config/chains";
 import { BsArrowRight } from "react-icons/bs";
 import { IoMdSwap } from "react-icons/io";
 import { useHistory } from "react-router-dom";
@@ -181,6 +182,9 @@ export default function SwapBox(props) {
     setOrderOption,
     setShortCollateralAddress,
     shortCollateralAddress,
+    worldChainPrices,
+    worldChainSwap,
+    shortCollateralToken,
   } = props;
   const { account, active, signer } = useWallet();
   const isMetamaskMobile = useIsMetamaskMobile();
@@ -321,7 +325,7 @@ export default function SwapBox(props) {
 
   const fromToken = getToken(chainId, fromTokenAddress);
   const toToken = getToken(chainId, toTokenAddress);
-  const shortCollateralToken = getTokenInfo(infoTokens, shortCollateralAddress);
+  const shortCollateralTokenInfo = getTokenInfo(infoTokens, shortCollateralAddress);
   const toTokenPriceDecimal = getPriceDecimals(chainId, toToken.symbol);
   const existingPositionPriceDecimal = getPriceDecimals(chainId, existingPosition?.indexToken?.symbol);
 
@@ -382,6 +386,19 @@ export default function SwapBox(props) {
   const prevFromTokenAddress = usePrevious(fromTokenAddress);
   const prevNeedApproval = usePrevious(needApproval);
   const prevToTokenAddress = usePrevious(toTokenAddress);
+
+  let fromTokenPriceUsd;
+  let toTokenPriceUsd;
+  if (props.worldChainPrices && chainId === WORLD) {
+    const fromSymbol = fromToken?.symbol;
+    const toSymbol = toToken?.symbol;
+    if (fromSymbol && props.worldChainPrices[fromSymbol]) {
+      fromTokenPriceUsd = BigInt(Math.floor(props.worldChainPrices[fromSymbol] * 10**30));
+    }
+    if (toSymbol && props.worldChainPrices[toSymbol]) {
+      toTokenPriceUsd = BigInt(Math.floor(props.worldChainPrices[toSymbol] * 10**30));
+    }
+  }
 
   const fromUsdMin = getUsd(fromAmount, fromTokenAddress, false, infoTokens);
   const toUsdMax = getUsd(toAmount, toTokenAddress, true, infoTokens, orderOption, triggerPriceUsd);
@@ -1442,6 +1459,72 @@ export default function SwapBox(props) {
 
   const increasePosition = async () => {
     setIsSubmitting(true);
+    
+    // Use World Chain implementation if available
+    if (props.worldChainIncreasePosition && chainId === WORLD) {
+      try {
+        const tokenAddress0 = fromTokenAddress === ZeroAddress ? nativeTokenAddress : fromTokenAddress;
+        const indexTokenAddress = toTokenAddress === ZeroAddress ? nativeTokenAddress : toTokenAddress;
+        let path = [indexTokenAddress]; // assume long
+        
+        if (toTokenAddress !== fromTokenAddress) {
+          path = [tokenAddress0, indexTokenAddress];
+        }
+
+        if (fromTokenAddress === ZeroAddress && toTokenAddress === nativeTokenAddress) {
+          path = [nativeTokenAddress];
+        }
+
+        if (fromTokenAddress === nativeTokenAddress && toTokenAddress === ZeroAddress) {
+          path = [nativeTokenAddress];
+        }
+
+        if (isShort) {
+          path = [shortCollateralAddress];
+          if (tokenAddress0 !== shortCollateralAddress) {
+            path = [tokenAddress0, shortCollateralAddress];
+          }
+        }
+
+        const refPrice = isLong ? toTokenInfo.maxPrice : toTokenInfo.minPrice;
+        const priceBasisPoints = isLong ? BASIS_POINTS_DIVISOR + allowedSlippage : BASIS_POINTS_DIVISOR - allowedSlippage;
+        const priceLimit = bigMath.mulDiv(refPrice, BigInt(priceBasisPoints), BASIS_POINTS_DIVISOR_BIGINT);
+        
+        await props.worldChainIncreasePosition(
+          path,
+          indexTokenAddress,
+          fromAmount ? fromAmount : 0n,
+          0n, // minOut
+          toUsdMax,
+          isLong,
+          priceLimit
+        );
+        
+        // Handle success
+        setIsConfirming(false);
+        
+        const key = getPositionKey(account, path[path.length - 1], indexTokenAddress, isLong);
+        let nextSize = toUsdMax;
+        if (hasExistingPosition) {
+          nextSize = existingPosition.size + toUsdMax;
+        }
+
+        pendingPositions[key] = {
+          updatedAt: Date.now(),
+          pendingChanges: {
+            size: nextSize,
+          },
+        };
+
+        setPendingPositions({ ...pendingPositions });
+        setIsSubmitting(false);
+        setIsPendingConfirmation(false);
+        return;
+      } catch (error) {
+        console.error("Error using World Chain increase position:", error);
+        // Continue with fallback implementation
+      }
+    }
     const tokenAddress0 = fromTokenAddress === ZeroAddress ? nativeTokenAddress : fromTokenAddress;
     const indexTokenAddress = toTokenAddress === ZeroAddress ? nativeTokenAddress : toTokenAddress;
     let path = [indexTokenAddress]; // assume long
@@ -1500,7 +1583,7 @@ export default function SwapBox(props) {
       toUsdMax, // _sizeDelta
       isLong, // _isLong
       priceLimit, // _acceptablePrice
-      minExecutionFee, // _executionFee
+      props.minExecutionFee || minExecutionFee, // _executionFee
       referralCode, // _referralCode
       ZeroAddress, // _callbackTarget
     ];
@@ -1517,7 +1600,7 @@ export default function SwapBox(props) {
         toUsdMax, // _sizeDelta
         isLong, // _isLong
         priceLimit, // _acceptablePrice
-        minExecutionFee, // _executionFee
+        props.minExecutionFee || minExecutionFee, // _executionFee
         referralCode, // _referralCode
         ZeroAddress, // _callbackTarget
       ];
