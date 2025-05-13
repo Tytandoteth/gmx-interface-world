@@ -2,12 +2,10 @@ import { Trans } from "@lingui/macro";
 import { Provider, ethers } from "ethers";
 import { useEffect, useRef, Suspense, lazy } from "react";
 import { Redirect, Route, Switch } from "react-router-dom";
-import type { Address } from "viem";
 
 import { ARBITRUM } from "config/chains";
 import { getContract } from "config/contracts";
 import { isDevelopment } from "config/env";
-import { SyntheticsStateContextProvider } from "context/SyntheticsStateContext/SyntheticsStateContextProvider";
 import { subscribeToV1Events } from "context/WebsocketContext/subscribeToEvents";
 import { useWebsocketProvider } from "context/WebsocketContext/WebsocketContextProvider";
 import { useChainId } from "lib/chains";
@@ -17,37 +15,26 @@ import { abis } from "sdk/abis";
 import Debug from "components/Debug/Debug";
 import TestingPanel from "components/WorldChainDevMode/TestingPanel";
 
-import { AccountDashboard } from "pages/AccountDashboard/AccountDashboard";
-import { buildAccountDashboardUrl } from "pages/AccountDashboard/buildAccountDashboardUrl";
-import { VERSION_QUERY_PARAM } from "pages/AccountDashboard/constants";
+import WorldChainDevTools from "pages/DevTools/WorldChainDevTools";
 import { AccountsRouter } from "pages/Actions/ActionsRouter";
 import BeginAccountTransfer from "pages/BeginAccountTransfer/BeginAccountTransfer";
 import Buy from "pages/Buy/Buy";
 import BuyGlp from "pages/BuyGlp/BuyGlp";
 import BuyGMX from "pages/BuyGMX/BuyGMX";
-import ClaimEsGmx from "pages/ClaimEsGmx/ClaimEsGmx";
 import CompleteAccountTransfer from "pages/CompleteAccountTransfer/CompleteAccountTransfer";
 import DashboardV2 from "pages/Dashboard/DashboardV2";
 import Earn from "pages/Earn/Earn";
 import Ecosystem from "pages/Ecosystem/Ecosystem";
 import { Exchange } from "pages/Exchange/Exchange";
-import Jobs from "pages/Jobs/Jobs";
-import { CompetitionRedirect, LeaderboardPage } from "pages/LeaderboardPage/LeaderboardPage";
-import { MarketPoolsPage } from "pages/MarketPoolsPage/MarketPoolsPage";
-import NftWallet from "pages/NftWallet/NftWallet";
 import OrdersOverview from "pages/OrdersOverview/OrdersOverview";
 import PageNotFound from "pages/PageNotFound/PageNotFound";
 import { ParseTransactionPage } from "pages/ParseTransaction/ParseTransaction";
 import PositionsOverview from "pages/PositionsOverview/PositionsOverview";
-import { PriceImpactRebatesStatsPage } from "pages/PriceImpactRebatesStats/PriceImpactRebatesStats";
 import RedstoneTestPage from "pages/RedstoneTestPage";
 import Referrals from "pages/Referrals/Referrals";
 import SimplePriceFeedDebug from "pages/SimplePriceFeedDebug";
 import ReferralsTier from "pages/ReferralsTier/ReferralsTier";
 import Stats from "pages/Stats/Stats";
-import { SyntheticsPage } from "pages/SyntheticsPage/SyntheticsPage";
-import { SyntheticsStats } from "pages/SyntheticsStats/SyntheticsStats";
-import WorldChainDevTools from "pages/DevTools/WorldChainDevTools";
 import { validatePaths } from "../debug/validation";
 
 const LazyUiPage = lazy(() => import("pages/UiPage/UiPage"));
@@ -66,8 +53,10 @@ export function MainRoutes({ openSettings }: { openSettings: () => void }) {
       // eslint-disable-next-line no-console
       console.log("[PATH_DEBUG] Available Debug components:", debugComponentType);
       
-      // Run path validation
-      validatePaths();
+      // Run path validation if available
+      if (typeof validatePaths === 'function') {
+        validatePaths();
+      }
     }
   }, []);
 
@@ -104,86 +93,65 @@ export function MainRoutes({ openSettings }: { openSettings: () => void }) {
 
   return (
     <Switch>
+      {/* Redirect all root and trade paths to V1 interface */}
       <Route exact path="/">
-        <Redirect to="/trade" />
+        <Redirect to="/v1" />
       </Route>
-      <Route exact path="/price_impact_rebates_stats">
-        <PriceImpactRebatesStatsPage />
+      <Route exact path="/trade">
+        <Redirect to="/v1" />
       </Route>
+      <Route exact path="/trade/:tradeType">
+        <Redirect to="/v1/:tradeType" />
+      </Route>
+
+      {/* Main V1 trading interface */}
       <Route exact path="/v1/:tradeType?">
         <Exchange ref={exchangeRef} openSettings={openSettings} />
       </Route>
+
+      {/* Dashboard and stats */}
       <Route exact path="/dashboard">
-        <SyntheticsStateContextProvider skipLocalReferralCode={false} pageType="dashboard">
-          <DashboardV2 />
-        </SyntheticsStateContextProvider>
+        <DashboardV2 />
       </Route>
-      <Route exact path="/stats/v1">
+      <Route exact path="/stats">
         <Stats />
       </Route>
       <Redirect exact from="/stats/v2" to="/stats" />
-      <Route exact path="/stats">
-        <SyntheticsStats />
-      </Route>
+      <Redirect exact from="/stats/v1" to="/stats" />
+
+      {/* Earn, Buy, and other GMX features */}
       <Route exact path="/earn">
-        <SyntheticsStateContextProvider skipLocalReferralCode={false} pageType="earn">
-          <Earn />
-        </SyntheticsStateContextProvider>
+        <Earn />
       </Route>
       <Route exact path="/buy">
-        <SyntheticsStateContextProvider skipLocalReferralCode={false} pageType="buy">
-          <Buy />
-        </SyntheticsStateContextProvider>
+        <Buy />
       </Route>
-      <Route exact path="/pools">
-        <SyntheticsStateContextProvider skipLocalReferralCode={false} pageType="pools">
-          <MarketPoolsPage />
-        </SyntheticsStateContextProvider>
-      </Route>
-
-      <Route exact path="/trade/:tradeType?">
-        <SyntheticsStateContextProvider skipLocalReferralCode={false} pageType="trade">
-          <SyntheticsPage openSettings={openSettings} />
-        </SyntheticsStateContextProvider>
-      </Route>
-      <Redirect from="/v2" to="/trade" />
       <Route exact path="/buy_glp">
         <BuyGlp />
-      </Route>
-      <Route exact path="/jobs">
-        <Jobs />
       </Route>
       <Route exact path="/buy_gmx">
         <BuyGMX />
       </Route>
-      <Route exact path="/ecosystem">
-        <Ecosystem />
+
+      {/* World Chain specific tools */}
+      <Route exact path="/worldchain/dev-tools">
+        <WorldChainDevTools />
       </Route>
       <Route exact path="/redstone-test">
         <RedstoneTestPage />
       </Route>
-      <Route exact path="/worldchain/dev-tools">
-        <WorldChainDevTools />
-      </Route>
-      <Route path="/leaderboard/">
-        <SyntheticsStateContextProvider skipLocalReferralCode pageType="leaderboard">
-          <LeaderboardPage />
-        </SyntheticsStateContextProvider>
-      </Route>
       
-      {/* Use the existing Debug component */}
-      <Route path="/debug">
-        <Debug />
+      {/* Testing panels for World Chain Development */}
+      <Route exact path="/worldchain/testing">
+        <TestingPanel />
       </Route>
-      <Route exact path="/competitions/">
-        <SyntheticsStateContextProvider skipLocalReferralCode pageType="competitions">
-          <CompetitionRedirect />
-        </SyntheticsStateContextProvider>
+      <Route exact path="/pricefeed-debug">
+        <SimplePriceFeedDebug />
       </Route>
-      <Route path="/competitions/:leaderboardPageKey">
-        <SyntheticsStateContextProvider skipLocalReferralCode pageType="competitions">
-          <LeaderboardPage />
-        </SyntheticsStateContextProvider>
+
+      {/* Other GMX platform pages */}
+      <Route exact path="/ecosystem">
+        <Ecosystem />
       </Route>
       <Route exact path="/referrals">
         <Referrals />
@@ -191,30 +159,23 @@ export function MainRoutes({ openSettings }: { openSettings: () => void }) {
       <Route exact path="/referrals/:account">
         <Referrals />
       </Route>
-      <Route exact path="/nft_wallet">
-        <NftWallet />
-      </Route>
-      <Route exact path="/claim_es_gmx">
-        <ClaimEsGmx />
+
+      {/* Redirect V2 paths to V1 */}
+      <Redirect from="/v2" to="/v1" />
+      
+      {/* Debug tools */}
+      <Route path="/debug">
+        <Debug />
       </Route>
 
-      <Route exact path="/actions/:v/:account">
-        {({ match }) => (
-          <Redirect
-            to={buildAccountDashboardUrl(match?.params.account as Address, chainId, match?.params.v === "v1" ? 1 : 2)}
-          />
-        )}
+      {/* Simplified account routes for World Chain */}
+      <Route exact path="/actions/:account">
+        <Redirect to="/accounts/:account" />
       </Route>
-      <Redirect exact from="/actions/v1" to={`/accounts?${VERSION_QUERY_PARAM}=1`} />
-      <Redirect exact from="/actions/v2" to="/accounts" />
       <Redirect exact from="/actions" to="/accounts" />
-      <Redirect exact from="/actions/:account" to="/accounts/:account" />
 
       <Route exact path="/accounts">
         <AccountsRouter />
-      </Route>
-      <Route exact path="/accounts/:account">
-        <AccountDashboard />
       </Route>
 
       <Route exact path="/referrals-tier">
@@ -235,7 +196,7 @@ export function MainRoutes({ openSettings }: { openSettings: () => void }) {
       <Route exact path="/complete_account_transfer/:sender/:receiver">
         <CompleteAccountTransfer />
       </Route>
-      {isDevelopment() && (
+      {isDevelopment && (
         <Route exact path="/ui">
           <UiPage />
         </Route>
@@ -244,9 +205,7 @@ export function MainRoutes({ openSettings }: { openSettings: () => void }) {
         <ParseTransactionPage />
       </Route>
 
-      <Route exact path="/leaderboard/competition/:id">
-        <CompetitionRedirect />
-      </Route>
+      {/* Removed competition routes for World Chain */}
         
       <Route exact path="/debug">
         <Debug />

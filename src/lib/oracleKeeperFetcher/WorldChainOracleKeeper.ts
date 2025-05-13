@@ -5,15 +5,21 @@
  * based on the original GMX interface but adapted for World Chain specific needs.
  */
 
+// External imports
 import { Web3Provider, JsonRpcProvider } from "@ethersproject/providers";
 
-import { WORLD } from "sdk/configs/chains";
+// Domain and types imports
 import { Bar } from "domain/tradingview/types";
+
+// SDK and configuration imports
+import { WORLD } from "sdk/configs/chains";
 
 import {
   DEFAULT_ORACLE_KEEPER_URL,
   CACHE_TTL_MS,
   MOCK_PRICES,
+  getMockPrice,
+  getMockHistoricalPrices,
   getOracleKeeperUrl,
   isWorldChain
 } from "./oracleKeeperConfig";
@@ -166,6 +172,56 @@ export class WorldChainOracleKeeper implements OracleFetcher {
   }
 
   /**
+   * Generate mock candles for World Chain
+   * @param tokenSymbol Token symbol
+   * @param limit Number of candles to fetch
+   * @returns Array of candle data
+   */
+  private getWorldChainMockCandles(tokenSymbol: string, limit: number): FromNewToOldArray<Bar> {
+    const normalizedSymbol = tokenSymbol.toUpperCase();
+    
+    // Check if we have mock historical data for this token using helper function
+    const historicalData = getMockHistoricalPrices(normalizedSymbol);
+    if (historicalData) {
+      // Slice the appropriate number of candles, or return all if limit > available
+      const startIndex = Math.max(0, historicalData.length - limit);
+      return historicalData.slice(startIndex);
+    }
+    
+    // Fallback for tokens without mock data
+    const basePrice = getMockPrice(normalizedSymbol);
+    const variance = basePrice * 0.03; // 3% variance
+    
+    const now = Math.floor(Date.now() / 1000);
+    const interval = 3600; // 1 hour intervals
+    const result: Bar[] = [];
+    
+    let lastPrice = basePrice;
+    for (let i = 0; i < limit; i++) {
+      const time = now - (limit - i) * interval;
+      const randomChange = (Math.random() - 0.5) * variance;
+      const meanReversion = (basePrice - lastPrice) * 0.2;
+      lastPrice = lastPrice + randomChange + meanReversion;
+      
+      const open = lastPrice;
+      const close = lastPrice + (Math.random() - 0.5) * variance * 0.5;
+      const high = Math.max(open, close) + Math.random() * variance * 0.3;
+      const low = Math.min(open, close) - Math.random() * variance * 0.3;
+      
+      result.push({
+        time,
+        open,
+        high,
+        low,
+        close,
+        volume: Math.random() * 1000000
+      });
+    }
+    
+    return result;
+  }
+
+  /**
    * Fetch candle data for a token
    * @param tokenSymbol Token symbol
    * @param period Period (e.g. "15m", "1h", "4h", "1d")
@@ -180,6 +236,13 @@ export class WorldChainOracleKeeper implements OracleFetcher {
     try {
       // Normalize token symbol - uppercase
       const normalizedSymbol = tokenSymbol.toUpperCase();
+      
+      // Use mock data for World Chain in development mode
+      if (isWorldChain(this.chainId) && import.meta.env.MODE === 'development') {
+        logger.info(`Using mock candle data for ${normalizedSymbol} on World Chain`);
+        const mockCandles = this.getWorldChainMockCandles(normalizedSymbol, limit);
+        return mockCandles;
+      }
       
       // Try cached data first
       const cacheKey = `candles_${normalizedSymbol}_${period}_${limit}`;
@@ -212,7 +275,13 @@ export class WorldChainOracleKeeper implements OracleFetcher {
       logger.error(`Failed to fetch candles for ${tokenSymbol}:`, 
         error instanceof Error ? error.message : String(error));
       
-      // Return empty array on error
+      // Fallback to mock data for World Chain
+      if (isWorldChain(this.chainId)) {
+        logger.warn(`Falling back to mock candle data for ${tokenSymbol}`);
+        return this.getWorldChainMockCandles(tokenSymbol, limit);
+      }
+      
+      // Return empty array on error for non-World chains
       return [];
     }
   }

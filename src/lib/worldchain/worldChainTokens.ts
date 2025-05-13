@@ -65,7 +65,7 @@ const WORLD_CHAIN_TOKEN_INFO = {
     address: WORLD_NATIVE_TOKEN,
     isNative: true,
     isShortable: true,
-    isV2: true,
+    isV2: false, // Using V1 contracts only
     imageUrl: "https://assets.coingecko.com/coins/images/279/small/ethereum.png",
     coingeckoUrl: "https://www.coingecko.com/en/coins/ethereum",
     explorerUrl: "https://explorer.world.com/token/" + WORLD_NATIVE_TOKEN,
@@ -79,7 +79,7 @@ const WORLD_CHAIN_TOKEN_INFO = {
     decimals: 18,
     address: WORLD_WLD_TOKEN,
     isShortable: true,
-    isV2: true,
+    isV2: false, // Using V1 contracts only
     imageUrl: "https://assets.coingecko.com/coins/images/31069/standard/WorldCoin.png",
     coingeckoUrl: "https://www.coingecko.com/en/coins/worldcoin",
     explorerUrl: "https://explorer.world.com/token/" + WORLD_WLD_TOKEN,
@@ -92,7 +92,7 @@ const WORLD_CHAIN_TOKEN_INFO = {
     decimals: 6,
     address: WORLD_USDC_TOKEN,
     isStable: true,
-    isV2: true,
+    isV2: false, // Using V1 contracts only
     imageUrl: "https://assets.coingecko.com/coins/images/6319/thumb/USD_Coin_icon.png",
     coingeckoUrl: "https://www.coingecko.com/en/coins/usd-coin",
     explorerUrl: "https://explorer.world.com/token/" + WORLD_USDC_TOKEN,
@@ -106,7 +106,7 @@ const WORLD_CHAIN_TOKEN_INFO = {
     decimals: 18,
     address: WORLD_ETH_TOKEN,
     isShortable: true,
-    isV2: true,
+    isV2: false, // Using V1 contracts only
     imageUrl: "https://assets.coingecko.com/coins/images/279/small/ethereum.png",
     coingeckoUrl: "https://www.coingecko.com/en/coins/ethereum",
     explorerUrl: "https://explorer.world.com/token/" + WORLD_ETH_TOKEN,
@@ -119,7 +119,7 @@ const WORLD_CHAIN_TOKEN_INFO = {
     decimals: 8,
     address: WORLD_BTC_TOKEN,
     isShortable: true,
-    isV2: true,
+    isV2: false, // Using V1 contracts only
     imageUrl: "https://assets.coingecko.com/coins/images/1/small/bitcoin.png",
     coingeckoUrl: "https://www.coingecko.com/en/coins/bitcoin",
     explorerUrl: "https://explorer.world.com/token/" + WORLD_BTC_TOKEN,
@@ -132,7 +132,7 @@ const WORLD_CHAIN_TOKEN_INFO = {
     decimals: 6,
     address: WORLD_USDT_TOKEN,
     isStable: true,
-    isV2: true,
+    isV2: false, // Using V1 contracts only
     imageUrl: "https://assets.coingecko.com/coins/images/325/small/Tether.png",
     coingeckoUrl: "https://www.coingecko.com/en/coins/tether",
     explorerUrl: "https://explorer.world.com/token/" + WORLD_USDT_TOKEN,
@@ -146,7 +146,7 @@ const WORLD_CHAIN_TOKEN_INFO = {
     decimals: 18,
     address: WORLD_MAG_TOKEN,
     isShortable: true,
-    isV2: true,
+    isV2: false, // Using V1 contracts only
     imageUrl: "https://assets.coingecko.com/coins/images/18623/standard/magic.png",
     coingeckoUrl: "https://www.coingecko.com/en/coins/magic",
     explorerUrl: "https://explorer.world.com/token/" + WORLD_MAG_TOKEN,
@@ -160,7 +160,7 @@ const WORLD_CHAIN_TOKEN_INFO = {
     decimals: 8,
     address: WORLD_WBTC_TOKEN,
     isShortable: true, 
-    isV2: true,
+    isV2: false, // Using V1 contracts only
     imageUrl: "https://assets.coingecko.com/coins/images/7598/standard/wrapped_bitcoin_wbtc.png",
     coingeckoUrl: "https://www.coingecko.com/en/coins/wrapped-bitcoin",
     explorerUrl: "https://explorer.world.com/token/" + WORLD_WBTC_TOKEN,
