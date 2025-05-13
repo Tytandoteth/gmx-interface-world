@@ -77,7 +77,7 @@ export async function getFormattedPriceMap(): Promise<Record<string, bigint>> {
   const formattedPrices: Record<string, bigint> = {};
   
   for (const [symbol, price] of Object.entries(prices)) {
-    if (price) {
+    if (price !== undefined && price !== null) {
       formattedPrices[symbol] = formatPriceForContract(price);
     }
   }

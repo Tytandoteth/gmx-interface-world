@@ -18,12 +18,18 @@ type MarketUiConfig = {
 */
 const MARKETS_UI_CONFIGS: Record<number, Record<string, MarketUiConfig>> = {
   [WORLD]: {
-    // WLD/USD market
-    "0x99A49AaA79b648ee24e85c4eb3A1C9c429A95652": {
+    // Disable World Chain markets in production until properly configured
+    // Use the correct token addresses for our markets
+    // WLD/USD market (using WLD token address)
+    "0x163f8C2467924be0ae7B5347228CABF260318753": {
       enabled: true,
     },
-    // ETH/USD market
-    "0xE1a9E792851b22A808639cf8e75D0A4025333f4B": {
+    // ETH/USD market (using WETH token address)
+    "0x4200000000000000000000000000000000000006": {
+      enabled: true,
+    },
+    // USDC market (using USDC token address)
+    "0x06eFdBFf2a14a7c8E15944D1F4A48F9F95F663A4": {
       enabled: true,
     },
   },

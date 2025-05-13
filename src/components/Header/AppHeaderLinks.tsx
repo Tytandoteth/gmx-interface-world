@@ -100,7 +100,7 @@ export function AppHeaderLinks({ small, openSettings, clickCloseIcon, showRedire
       </div>
       
       {/* World Chain specific links - only visible in production or with production mode enabled */}
-      {(isDevelopment || import.meta.env.VITE_USE_PRODUCTION_MODE === 'true') && (
+      {(isDevelopment() || import.meta.env.VITE_USE_PRODUCTION_MODE === 'true') && (
         <div className="App-header-link-container">
           <div className="header-dropdown">
             <div className="header-dropdown-label">

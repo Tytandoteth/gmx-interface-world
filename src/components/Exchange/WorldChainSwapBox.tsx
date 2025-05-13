@@ -3,24 +3,33 @@
  * Higher-order component that connects the SwapBox to World Chain contracts
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
 import { ethers } from 'ethers';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { useParams } from 'react-router-dom';
+import { useChainId } from 'wagmi';
 
-import { useWorldChainTrading } from '../../context/WorldChainTradingContext/WorldChainTradingContext';
-import { Logger } from '../../lib/logger';
-import { useChainId } from '../../lib/chains';
+import SwapBox from '../Synthetics/SwapBox/SwapBox';
+import { DEFAULT_HIGHER_SLIPPAGE_AMOUNT } from '../../config/factors';
+
+import './WorldChainSwapBox.css';
+import { getTokenBySymbol } from '../../config/tokens';
+import { isWorldChain } from '../../lib/worldchain';
 import { WORLD } from '../../config/chains';
-import { useTokensAllowanceData } from '../../domain/synthetics/tokens/useTokenAllowanceData';
-import { approveTokens } from '../../domain/tokens';
+import { WORLD_CHAIN_TOKENS } from '../../lib/worldchain/worldChainTokens';
+import { getTokenV2 } from '../../config/tokens';
+import { bigNumberify } from '../../lib/numbers';
 import { formatAmount } from '../../lib/numbers';
+import { getSafeTokenSymbol, getSafeTokenAddress, createSafeToken } from '../../lib/worldchain/tokenUtils';
 import useWallet from '../../lib/wallets/useWallet';
+import { Logger } from '../../lib/logger';
 import { helperToast } from '../../lib/helperToast';
-
-// Import the original SwapBox component
-// @ts-ignore - JSX vs TSX file extension difference
-import SwapBox from './SwapBox';
-
-const logger = new Logger('WorldChainSwapBox');
+import { useWorldChainTrading } from '../../context/WorldChainTradingContext/WorldChainTradingContext';
+import { approveTokens } from '../../domain/tokens';
+import { 
+  WORLD_ETH_TOKEN, 
+  WORLD_USDC_TOKEN, 
+  getWorldChainNativeToken
+} from '../../lib/worldchain';
 
 /**
  * Interface for SwapBox props
@@ -54,15 +63,81 @@ interface SwapBoxProps {
  * World Chain version of the SwapBox component
  * Adds World Chain specific contract interactions
  */
-const WorldChainSwapBox: React.FC<SwapBoxProps> = (props) => {
-  const { chainId } = useChainId();
+const WorldChainSwapBox = (props: SwapBoxProps) => {
+  const chainId = useChainId();
+  
+  // Default token symbols
+  const [fromTokenSymbol, setFromTokenSymbol] = useState<string>('WLD');
+  const [toTokenSymbol, setToTokenSymbol] = useState<string>('USDC');
   const { active, account, signer } = useWallet();
+  
+  // Create saved state variables if not provided as props
+  const savedIsPnlInLeverage = props.savedIsPnlInLeverage || false;
+  const setSavedIsPnlInLeverage = props.setSavedIsPnlInLeverage || (() => { /* no-op */ });
+  const savedSlippageAmount = props.savedSlippageAmount || 0.5;
+  const setSavedSlippageAmount = props.setSavedSlippageAmount || (() => { /* no-op */ });
+  const setPendingTxns = props.setPendingTxns || (() => { /* no-op */ });
+  
+  // Prepare merged token data
+  const mergedInfoTokens = props.infoTokens || {};
+  const mergedTokensData = props.tokensData || {};
   const { 
     executeSwap, 
     increasePosition, 
     getMinExecutionFee,
     prices 
   } = useWorldChainTrading();
+  
+  // Create tokenInfo for World Chain tokens to ensure symbol property is available
+  const worldChainTokensInfo = useMemo(() => {
+    // Use real token addresses from our worldchain tokens file
+    const tokensData: any = {
+      // Make sure our token addresses are always available
+      // Native token (WLD)
+      [getWorldChainNativeToken()]: {
+        address: getWorldChainNativeToken(),
+        symbol: "WLD",
+        name: "World",
+        decimals: 18,
+        isNative: true,
+        isShortable: true,
+        isStable: false,
+        prices: prices?.WLD ? { 
+          minPrice: ethers.parseUnits(prices.WLD.toString(), 30),
+          maxPrice: ethers.parseUnits(prices.WLD.toString(), 30) 
+        } : undefined
+      },
+      [WORLD_ETH_TOKEN]: {
+        address: WORLD_ETH_TOKEN,
+        symbol: "WETH",
+        name: "Wrapped Ethereum",
+        decimals: 18,
+        isNative: false,
+        isShortable: true,
+        isStable: false,
+        prices: prices?.WETH ? { 
+          minPrice: ethers.parseUnits(prices.WETH.toString(), 30),
+          maxPrice: ethers.parseUnits(prices.WETH.toString(), 30) 
+        } : undefined
+      },
+      [WORLD_USDC_TOKEN]: {
+        address: WORLD_USDC_TOKEN,
+        symbol: "USDC",
+        name: "USD Coin",
+        decimals: 6,
+        isNative: false,
+        isShortable: false,
+        isStable: true,
+        prices: { 
+          minPrice: ethers.parseUnits("1", 30),
+          maxPrice: ethers.parseUnits("1", 30) 
+        }
+      },
+    };
+    
+    Logger.info("World Chain Tokens Info initialized", Object.keys(tokensData));
+    return tokensData;
+  }, [prices]);
   
   // State for execution fee
   const [minExecutionFee, setMinExecutionFee] = useState<bigint>(300000000000000n); // Default 0.0003 ETH
@@ -74,9 +149,9 @@ const WorldChainSwapBox: React.FC<SwapBoxProps> = (props) => {
         try {
           const fee = await getMinExecutionFee();
           setMinExecutionFee(fee);
-          logger.info(`Min execution fee: ${formatAmount(fee, 18, 6)} ETH`);
+          Logger.info(`Min execution fee: ${formatAmount(fee, 18, 6)} ETH`);
         } catch (error) {
-          logger.error("Error fetching min execution fee:", error);
+          Logger.error("Error fetching min execution fee:", error);
         }
       }
     };
@@ -94,18 +169,19 @@ const WorldChainSwapBox: React.FC<SwapBoxProps> = (props) => {
     minAmountOut: bigint
   ) => {
     if (!active || !account || !signer) {
-      helperToast.error("Wallet not connected");
+      Logger.error("Wallet not connected");
+      helperToast.error("Please connect your wallet");
       return;
     }
     
     if (chainId !== WORLD) {
+      Logger.error("World Chain not connected");
       helperToast.error("Please connect to World Chain");
       return;
     }
     
     try {
       // Check allowance and approve if needed
-      const tokenAddress = tokenIn === ethers.ZeroAddress ? tokenIn : tokenIn;
       if (tokenIn !== ethers.ZeroAddress) {
         const tokenContract = new ethers.Contract(
           tokenIn,
@@ -113,20 +189,27 @@ const WorldChainSwapBox: React.FC<SwapBoxProps> = (props) => {
           signer
         );
         
-        const routerAddress = process.env.VITE_ROUTER_ADDRESS;
+        const routerAddress = import.meta.env.VITE_ROUTER_ADDRESS;
         const allowance = await tokenContract.allowance(account, routerAddress);
         
         if (allowance < amountIn) {
           // Approve token
           await approveTokens({
-            tokenAddresses: [tokenIn],
-            spenderAddress: routerAddress,
+            tokenAddress: tokenIn,
+            spender: routerAddress,
             chainId: WORLD,
-            provider: signer.provider as ethers.Provider,
             signer,
+            setIsApproving: (_isApproving: boolean) => {
+              // No-op, we don't need to track approval state here
+            },
             onApproveSubmitted: () => {
               helperToast.success("Approval submitted");
-            }
+            },
+            getTokenInfo: undefined,
+            infoTokens: undefined,
+            pendingTxns: undefined,
+            setPendingTxns: undefined,
+            includeMessage: true
           });
         }
       }
@@ -156,10 +239,10 @@ const WorldChainSwapBox: React.FC<SwapBoxProps> = (props) => {
         helperToast.error(`Swap failed: ${result.error?.message}`);
       }
     } catch (error) {
-      logger.error("Swap error:", error);
+      Logger.error("Swap error:", error);
       helperToast.error("Swap failed");
     }
-  }, [active, account, signer, chainId, executeSwap, props.setPendingTxns]);
+  }, [active, account, signer, chainId, executeSwap, props]);
   
   /**
    * Override increasePosition function with World Chain implementation
@@ -174,11 +257,13 @@ const WorldChainSwapBox: React.FC<SwapBoxProps> = (props) => {
     acceptablePrice: bigint
   ) => {
     if (!active || !account || !signer) {
-      helperToast.error("Wallet not connected");
+      Logger.error("Wallet not connected");
+      helperToast.error("Please connect your wallet");
       return;
     }
     
     if (chainId !== WORLD) {
+      Logger.error("World Chain not connected");
       helperToast.error("Please connect to World Chain");
       return;
     }
@@ -192,17 +277,25 @@ const WorldChainSwapBox: React.FC<SwapBoxProps> = (props) => {
           signer
         );
         
-        const positionRouterAddress = process.env.VITE_POSITION_ROUTER_ADDRESS;
+        const positionRouterAddress = import.meta.env.VITE_POSITION_ROUTER_ADDRESS;
+        // Safety check for position router address
+        if (!positionRouterAddress) {
+          Logger.error('Position router address is not defined in environment variables');
+          helperToast.error('Missing configuration: Position router address');
+          return;
+        }
         const allowance = await tokenContract.allowance(account, positionRouterAddress);
         
         if (allowance < amountIn) {
           // Approve token
           await approveTokens({
-            tokenAddresses: [path[0]],
-            spenderAddress: positionRouterAddress,
+            tokenAddress: path[0],
+            spender: positionRouterAddress,
             chainId: WORLD,
-            provider: signer.provider as ethers.Provider,
             signer,
+            setIsApproving: (_isApproving: boolean) => {
+              // No-op, we don't need to track approval state here
+            },
             onApproveSubmitted: () => {
               helperToast.success("Approval submitted");
             }
@@ -238,21 +331,142 @@ const WorldChainSwapBox: React.FC<SwapBoxProps> = (props) => {
         helperToast.error(`Position failed: ${result.error?.message}`);
       }
     } catch (error) {
-      logger.error("IncreasePosition error:", error);
+      Logger.error("IncreasePosition error:", error);
       helperToast.error("Position creation failed");
     }
-  }, [active, account, signer, chainId, increasePosition, minExecutionFee, props.setPendingTxns]);
+  }, [active, account, signer, chainId, increasePosition, minExecutionFee, props]);
   
-  // Inject our implementations into the original SwapBox
+  // Only return the SwapBox when we have valid token data and we're on World Chain
+  if (isWorldChain(chainId)) {
+    // Get the SwapBox tokens with safe access
+    const { fromTokenAddress, toTokenAddress } = useMemo(() => {
+      // Use token addresses from URL if available
+      let fromToken = fromTokenSymbol ? getTokenBySymbol(chainId, fromTokenSymbol) : undefined;
+      let toToken = toTokenSymbol ? getTokenBySymbol(chainId, toTokenSymbol) : undefined;
+
+      if (isWorldChain(chainId)) {
+        // For World Chain, use World Chain tokens with safe access
+        if (fromTokenSymbol) {
+          const worldFromToken = WORLD_CHAIN_TOKENS[fromTokenSymbol];
+          // Create a safe token with fallback values if needed
+          if (worldFromToken) {
+            fromToken = {
+              ...fromToken,
+              ...worldFromToken,
+              symbol: getSafeTokenSymbol(worldFromToken, fromTokenSymbol),
+              address: getSafeTokenAddress(worldFromToken)
+            };
+          } else {
+            // If token not found, create a safe token placeholder
+            console.warn(`Token ${fromTokenSymbol} not found in WORLD_CHAIN_TOKENS, using fallback`);
+            fromToken = createSafeToken(
+              undefined, // This will use the native token address
+              fromTokenSymbol,
+              `${fromTokenSymbol} Token`
+            );
+          }
+        }
+        
+        if (toTokenSymbol) {
+          const worldToToken = WORLD_CHAIN_TOKENS[toTokenSymbol];
+          if (worldToToken) {
+            toToken = {
+              ...toToken,
+              ...worldToToken,
+              symbol: getSafeTokenSymbol(worldToToken, toTokenSymbol),
+              address: getSafeTokenAddress(worldToToken)
+            };
+          } else {
+            // If token not found, create a safe token placeholder
+            console.warn(`Token ${toTokenSymbol} not found in WORLD_CHAIN_TOKENS, using fallback`);
+            toToken = createSafeToken(
+              undefined, // This will use the native token address 
+              toTokenSymbol,
+              `${toTokenSymbol} Token`
+            );
+          }
+        }
+      }
+      
+      return {
+        fromTokenAddress: fromToken?.address,
+        toTokenAddress: toToken?.address
+      };
+    }, [chainId, fromTokenSymbol, toTokenSymbol]);
+    
+    // Additional validation to ensure we have valid addresses
+    const validFromAddress = fromTokenAddress && fromTokenAddress !== '0x0000000000000000000000000000000000000000';
+    const validToAddress = toTokenAddress && toTokenAddress !== '0x0000000000000000000000000000000000000000';
+
+    if (!validFromAddress || !validToAddress) {
+      console.warn('Invalid token addresses detected in WorldChainSwapBox:', {
+        fromTokenAddress,
+        toTokenAddress
+      });
+      return (
+        <div className="Exchange-swap-box-wrapper World-chain-swap-box error">
+          <div className="swap-error-message">
+            Unable to load tokens. Please check network connection and refresh.
+          </div>
+        </div>
+      );
+    }
+
+    // Merge our token data with existing token data to ensure symbols are available
+    const mergedTokensData = { ...worldChainTokensInfo, ...props.tokensData };
+    const mergedInfoTokens = { ...worldChainTokensInfo, ...props.infoTokens };
+    
+    // Inject our implementations into the original SwapBox
+    const enhancedProps = {
+      ...props,
+      // Inject min execution fee
+      minExecutionFee,
+      // Inject World Chain specific overrides
+      worldChainSwap: handleSwap,
+      worldChainIncreasePosition: handleIncreasePosition,
+      // Inject price data if available
+      worldChainPrices: prices,
+      infoTokens: mergedInfoTokens,
+      tokensData: mergedTokensData
+    };
+    
+    return (
+      <div className="Exchange-swap-box-wrapper World-chain-swap-box">
+        <SwapBox
+          chainId={chainId}
+          fromTokenAddress={fromTokenAddress}
+          toTokenAddress={toTokenAddress}
+          savedIsPnlInLeverage={savedIsPnlInLeverage}
+          setSavedIsPnlInLeverage={setSavedIsPnlInLeverage}
+          savedSlippageAmount={savedSlippageAmount}
+          setSavedSlippageAmount={setSavedSlippageAmount}
+          setPendingTxns={setPendingTxns}
+          {...enhancedProps}
+        />
+      </div>
+    );
+  }
+
+  // If not on World Chain, return null
+  if (!isWorldChain(chainId)) {
+    return null;
+  }
+  
+  // Inject World Chain specific overrides
   const enhancedProps = {
     ...props,
-    // Inject min execution fee
-    minExecutionFee,
-    // Inject World Chain specific overrides
     worldChainSwap: handleSwap,
     worldChainIncreasePosition: handleIncreasePosition,
     // Inject price data if available
-    worldChainPrices: prices
+    worldChainPrices: prices,
+    infoTokens: mergedInfoTokens,
+    tokensData: mergedTokensData,
+    // Provide saved state variables
+    savedIsPnlInLeverage,
+    setSavedIsPnlInLeverage,
+    savedSlippageAmount,
+    setSavedSlippageAmount,
+    setPendingTxns
   };
   
   return <SwapBox {...enhancedProps} />;

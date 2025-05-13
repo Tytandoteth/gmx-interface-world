@@ -1,5 +1,11 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
+# project-specific
+/oracle-keeper/
+/sdk/
+/contracts/
+/autotests/
+
 # dependencies
 /node_modules
 **/node_modules/
@@ -12,6 +18,8 @@
 .vs/
 *.swp
 *.swo
+*.sublime-*
+*.code-workspace
 
 # lingui
 /src/locales/**/*.js
@@ -23,15 +31,30 @@
 **/.nyc_output
 **/coverage/
 test-report.xml
+**/cypress/videos/
+**/cypress/screenshots/
+**/cypress/downloads/
+**/cypress/results/
+**/test-results/
+**/__tests__/**/*.js
+**/__mocks__/**/*.js
+jest.config.js
 
 # production
 /build
 /dist
 **/build/
 **/dist/
+**/.next/
+**/.vercel/
+**/.netlify/
+**/out/
+**/storybook-static/
 
 # analytics
 /stats.html
+**/stats/
+**/analytics/
 
 # logs
 **/*.log
@@ -40,6 +63,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+lerna-debug.log*
 
 # cache
 .eslintcache
@@ -48,6 +72,29 @@ pnpm-debug.log*
 .rollup.cache
 tsconfig.tsbuildinfo
 **/.npm
+.stylelintcache
+.prettiercache
+**/.sass-cache
+**/.cache/
+
+# misc
+.DS_Store
+.env
+.env.*
+!.env.example
+!.env-cmdrc
+!sample.env.*
+*.pem
+.history/
+**/.history/
+**/tmp/
+**/temp/
+**/.tmp/
+**/.temp/
+**/*.bak
+**/*.backup
+**/*.old
+**/*.orig
 
 # env files
 .env

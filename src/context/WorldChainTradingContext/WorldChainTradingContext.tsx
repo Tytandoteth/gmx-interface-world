@@ -3,8 +3,8 @@
  * Provides access to World Chain trading functionality throughout the application
  */
 
-import React, { createContext, useContext, ReactNode } from 'react';
 import { ethers } from 'ethers';
+import React, { createContext, useContext, ReactNode } from 'react';
 
 import { 
   useWorldChainSwap, 
@@ -32,9 +32,10 @@ interface WorldChainTradingContextType {
   
   // Price data
   prices: Record<string, number>;
-  getTokenPrice: (symbol: string) => number | undefined;
+  getTokenPrice: (symbol: string, fallbackPrice?: number) => number | undefined;
   isPricesLoading: boolean;
   pricesError: Error | null;
+  isPriceAvailable: (symbol: string) => boolean;
   
   // Loading states
   isLoading: boolean;
@@ -60,6 +61,7 @@ const WorldChainTradingContext = createContext<WorldChainTradingContextType>({
   getTokenPrice: () => undefined,
   isPricesLoading: true,
   pricesError: null,
+  isPriceAvailable: () => false,
   
   // Loading state
   isLoading: true

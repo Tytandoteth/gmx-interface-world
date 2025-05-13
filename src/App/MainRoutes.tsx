@@ -48,16 +48,13 @@ export function MainRoutes({ openSettings }: { openSettings: () => void }) {
   
   // Validate import paths only in development
   useEffect(() => {
-    if (isDevelopment) {
+    if (isDevelopment()) {
       // Check if Debug component is properly loaded
-      const debugComponentType = typeof Debug;
       // eslint-disable-next-line no-console
-      console.log("[PATH_DEBUG] Available Debug components:", debugComponentType);
+      console.log("[PATH_DEBUG] Available Debug components:", Debug);
       
       // Run path validation if available
-      if (typeof validatePaths === 'function') {
-        validatePaths();
-      }
+      validatePaths?.();
     }
   }, []);
 
@@ -200,7 +197,7 @@ export function MainRoutes({ openSettings }: { openSettings: () => void }) {
       <Route exact path="/complete_account_transfer/:sender/:receiver">
         <CompleteAccountTransfer />
       </Route>
-      {isDevelopment && (
+      {isDevelopment() && (
         <Route exact path="/ui">
           <UiPage />
         </Route>

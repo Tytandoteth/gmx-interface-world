@@ -5,22 +5,16 @@
 
 import { ethers } from 'ethers';
 import { useEffect, useState, useCallback } from 'react';
-import { useAccount } from 'wagmi';
+import { useAccount, useChainId } from 'wagmi';
 
 import { WORLD } from '../../config/chains';
-import { getContractAddress } from '../../config/worldChainContracts';
-import { useChainId } from '../chains';
 import { Logger } from '../logger';
+import { fetchOracleKeeperPrices } from '../../services/oracleKeeperService';
+
 import { 
-  useWorldChainVault, 
   useWorldChainRouter, 
   useWorldChainPositionRouter 
 } from './worldChainV1Contracts';
-
-// Import ABIs dynamically to avoid circular dependencies
-import RouterAbi from '../../abis/Router.json';
-// Note: Using Router ABI as a fallback since PositionRouter has similar interface
-import VaultAbi from '../../abis/Vault.json';
 
 // Configure constants for the module
 
@@ -57,7 +51,7 @@ export interface TradingResult {
  * Provides functions to execute swaps with proper error handling
  */
 export function useWorldChainSwap() {
-  const { chainId } = useChainId();
+  const chainId = useChainId();
   const { address, connector } = useAccount();
   const [signer, setSigner] = useState<ethers.Signer | null>(null);
   
@@ -95,23 +89,7 @@ export function useWorldChainSwap() {
   /**
    * Execute a token swap on World Chain
    */
-  const executeSwap = useCallback(async (
-    params: SwapParams
-  ): Promise<TradingResult> => {
-    if (!signer || chainId !== WORLD) {
-      return { 
-        success: false, 
-        error: new Error('Invalid signer or chain') 
-      };
-    }
-    
-    if (!router) {
-      return { 
-        success: false, 
-        error: new Error('Router not initialized') 
-      };
-    }
-    
+  const executeSwap = useCallback(async (params: SwapParams): Promise<TradingResult> => {
     try {
       setIsSwapping(true);
       setError(null);
@@ -137,6 +115,10 @@ export function useWorldChainSwap() {
       } else if (isETHOut) {
         method = 'swapTokensToETH';
         txParams = [params.path.slice(0, -1), params.amountIn, params.minOut, params.referralCode || ethers.ZeroHash];
+      }
+      
+      if (!router) {
+        throw new Error('Router not initialized');
       }
       
       // Execute transaction
@@ -180,7 +162,7 @@ export function useWorldChainSwap() {
  * Provides functions to open, close and manage positions
  */
 export function useWorldChainPosition() {
-  const { chainId } = useChainId();
+  const chainId = useChainId();
   const { address, connector } = useAccount();
   const [signer, setSigner] = useState<ethers.Signer | null>(null);
   
@@ -355,51 +337,77 @@ export function useWorldChainPrices() {
   const [prices, setPrices] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  
-  // Fetch prices on mount
+
   useEffect(() => {
+    let isMounted = true;
     const fetchPrices = async () => {
       try {
         setIsLoading(true);
-        // Use Oracle Keeper URL from environment
-        const oracleKeeperUrl = import.meta.env.VITE_ORACLE_KEEPER_URL || 'https://oracle-keeper.kevin8396.workers.dev';
-        
-        // Fetch direct prices for real-time data
-        const response = await fetch(`${oracleKeeperUrl}/direct-prices`);
-        if (!response.ok) {
-          throw new Error(`Oracle Keeper error: ${response.status}`);
+        const response = await fetchOracleKeeperPrices();
+        if (isMounted && response && response.prices) {
+          setPrices(response.prices || {});
+          setError(null);
         }
-        
-        const data = await response.json();
-        setPrices(data.prices || {});
-        setError(null);
       } catch (err) {
-        const error = err instanceof Error ? err : new Error(String(err));
-        Logger.error(`Failed to fetch prices: ${error.message}`);
-        setError(error);
+        if (isMounted) {
+          // Use warning instead of console.error to follow ESLint rules
+          console.warn('Error fetching token prices:', err);
+          setError(err instanceof Error ? err : new Error('Unknown error fetching prices'));
+        }
       } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
-    
+
     fetchPrices();
+    
     // Refresh prices every 15 seconds
     const interval = setInterval(fetchPrices, 15000);
-    
-    return () => clearInterval(interval);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, []);
   
   /**
-   * Gets the price of a token in USD
+   * Gets the price of a token in USD with safety checks
+   * @param symbol The token symbol to get price for
+   * @param fallbackPrice Optional fallback price if token price not found
+   * @returns The token price in USD or fallback/undefined
    */
-  const getTokenPrice = useCallback((symbol: string): number | undefined => {
-    return prices[symbol.toUpperCase()];
+  const getTokenPrice = useCallback((symbol: string, fallbackPrice?: number): number | undefined => {
+    if (!symbol || typeof symbol !== 'string') {
+      return fallbackPrice;
+    }
+    
+    const uppercaseSymbol = symbol.toUpperCase();
+    return prices && prices[uppercaseSymbol] !== undefined ? 
+      prices[uppercaseSymbol] : 
+      fallbackPrice;
+  }, [prices]);
+  
+  /**
+   * Checks if a price is available for a given token symbol
+   * @param symbol The token symbol to check
+   * @returns True if the price is available, false otherwise
+   */
+  const isPriceAvailable = useCallback((symbol: string): boolean => {
+    if (!symbol || typeof symbol !== 'string') {
+      return false;
+    }
+    
+    const uppercaseSymbol = symbol.toUpperCase();
+    return Boolean(prices && prices[uppercaseSymbol] !== undefined);
   }, [prices]);
   
   return {
     prices,
     getTokenPrice,
     isLoading,
-    error
+    error,
+    isPriceAvailable
   };
 }
