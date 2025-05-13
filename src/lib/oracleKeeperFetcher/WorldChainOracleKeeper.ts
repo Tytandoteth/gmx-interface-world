@@ -94,20 +94,36 @@ export class WorldChainOracleKeeper implements OracleFetcher {
     return mockData as TickersResponse;
   }
 
+  // Track last fetch times to avoid excessive logging
+  private lastTickersFetch = 0;
+  private lastDirectPricesFetch = 0;
+  private lastApyFetch = 0;
+  
   /**
    * Fetch current price tickers
    * @returns Promise with ticker data
    */
   async fetchTickers(): Promise<TickersResponse> {
     try {
+      const now = Date.now();
+      const shouldLog = now - this.lastTickersFetch > 10000; // Log at most every 10 seconds
+      
+      if (shouldLog) {
+        this.lastTickersFetch = now;
+      }
+      
       // Use mock data for World Chain in development
       if (isWorldChain(this.chainId) && import.meta.env.MODE === 'development') {
-        logger.info('Using mock ticker data for World Chain');
+        if (shouldLog) {
+          logger.debug('Using mock ticker data for World Chain');
+        }
         return this.getWorldChainMockData();
       }
 
       const url = buildUrl(this.url, "/prices/tickers");
-      logger.info(`Fetching tickers from ${url}`);
+      if (shouldLog) {
+        logger.debug(`Fetching tickers from ${url}`);
+      }
       
       const data = await fetchWithTimeout<TickersResponse>(url);
       return data;
@@ -221,6 +237,9 @@ export class WorldChainOracleKeeper implements OracleFetcher {
     return result;
   }
 
+  // Track most recent fetch requests to avoid duplicate logging
+  private lastFetchedCandles: Record<string, number> = {};
+  
   /**
    * Fetch candle data for a token
    * @param tokenSymbol Token symbol
@@ -237,9 +256,21 @@ export class WorldChainOracleKeeper implements OracleFetcher {
       // Normalize token symbol - uppercase
       const normalizedSymbol = tokenSymbol.toUpperCase();
       
+      // Create a key to track this specific request
+      const requestKey = `${normalizedSymbol}_${period}_${limit}`;
+      const now = Date.now();
+      const lastFetched = this.lastFetchedCandles[requestKey] || 0;
+      
+      // Only log if this is a new request or hasn't been logged in the last 30 seconds
+      const shouldLogRequest = now - lastFetched > 30000;
+      
       // Use mock data for World Chain in development mode
       if (isWorldChain(this.chainId) && import.meta.env.MODE === 'development') {
-        logger.info(`Using mock candle data for ${normalizedSymbol} on World Chain`);
+        if (shouldLogRequest) {
+          logger.debug(`Using mock candle data for ${normalizedSymbol} on World Chain`);
+          // Update last fetched time
+          this.lastFetchedCandles[requestKey] = now;
+        }
         const mockCandles = this.getWorldChainMockCandles(normalizedSymbol, limit);
         return mockCandles;
       }
@@ -292,18 +323,26 @@ export class WorldChainOracleKeeper implements OracleFetcher {
    */
   async fetchDirectPrices(): Promise<DirectPricesResponse> {
     try {
+      const now = Date.now();
+      const shouldLog = now - this.lastDirectPricesFetch > 10000; // Log at most every 10 seconds
+      
+      if (shouldLog) {
+        this.lastDirectPricesFetch = now;
+      }
+      
       const url = buildUrl(this.url, "/direct-prices");
-      logger.info(`Fetching direct prices from ${url}`);
+      if (shouldLog) {
+        logger.debug(`Fetching direct prices from ${url}`);
+      }
       
-      const response = await fetchWithTimeout<DirectPricesResponse>(url);
-      return response;
+      const data = await fetchWithTimeout<DirectPricesResponse>(url);
+      return data;
     } catch (error: unknown) {
-      logger.error('Failed to fetch direct prices:', 
-        error instanceof Error ? error.message : String(error));
+      logger.error('Failed to fetch direct prices:', error instanceof Error ? error.message : String(error));
       
-      // Return mock response on error
+      // Return fallback response object that matches the expected type
       return {
-        prices: MOCK_PRICES,
+        prices: {},  // Empty prices object, not an array
         timestamp: new Date().toISOString(),
         lastUpdated: new Date().toISOString(),
         status: 'error',

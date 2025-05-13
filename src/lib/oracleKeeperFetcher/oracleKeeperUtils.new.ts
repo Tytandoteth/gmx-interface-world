@@ -6,22 +6,66 @@
 import { Bar } from "domain/tradingview/types";
 import { REQUEST_TIMEOUT_MS } from "./oracleKeeperConfig";
 
+// Use a custom logger implementation for Oracle Keeper that doesn't depend on external modules
+// This avoids path resolution issues while we're transitioning to the centralized logger
+
 /**
- * Logger for Oracle Keeper operations
+ * Simple logger with rate limiting to prevent excessive console output
+ */
+const MAX_LOG_COUNT = 1000;
+let logCounter = 0;
+
+function shouldLog(): boolean {
+  logCounter++;
+  
+  // Reset counter each minute to allow new logs
+  if (logCounter === 1) {
+    setTimeout(() => { logCounter = 0; }, 60000);
+  }
+  
+  // Only log if we haven't exceeded the maximum and not in production
+  return logCounter <= MAX_LOG_COUNT && import.meta.env.MODE !== 'production';
+}
+
+/**
+ * Logger for Oracle Keeper operations with rate limiting
+ * Dramatically reduces console logging to improve performance
  */
 export const logger = {
   info: (message: string, ...args: any[]): void => {
-    if (import.meta.env.MODE !== 'production') {
+    if (shouldLog()) {
+      // eslint-disable-next-line no-console
       console.log(`[Oracle Keeper] ${message}`, ...args);
     }
   },
   
   warn: (message: string, ...args: any[]): void => {
-    console.warn(`[Oracle Keeper] ${message}`, ...args);
+    if (shouldLog()) {
+      // console.warn is allowed by ESLint rules
+      console.warn(`[Oracle Keeper] ${message}`, ...args);
+    }
   },
   
   error: (message: string, ...args: any[]): void => {
+    // Always log errors regardless of rate limiting
+    // console.error is allowed by ESLint rules
     console.error(`[Oracle Keeper] ${message}`, ...args);
+  },
+  
+  debug: (message: string, ...args: any[]): void => {
+    // Only log debug in development with rate limiting
+    if (shouldLog() && import.meta.env.MODE !== 'production') {
+      // eslint-disable-next-line no-console
+      console.log(`[Oracle Keeper:DEBUG] ${message}`, ...args);
+    }
+  },
+  
+  trace: (message: string, ...args: any[]): void => {
+    // Trace is most verbose, only show in development with rate limiting
+    if (shouldLog() && import.meta.env.MODE !== 'production') {
+      // eslint-disable-next-line no-console
+      console.log(`[Oracle Keeper:TRACE] ${message}`, ...args);
+    }
   }
 };
 
