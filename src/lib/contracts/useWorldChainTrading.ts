@@ -44,6 +44,7 @@ export interface TradingResult {
   success: boolean;
   hash?: string;
   error?: Error;
+  errorCode?: 'USER_DENIED' | 'SWAP_FAILED' | 'POSITION_FAILED' | 'INVALID_PARAMS';
 }
 
 /**
@@ -91,6 +92,22 @@ export function useWorldChainSwap() {
    */
   const executeSwap = useCallback(async (params: SwapParams): Promise<TradingResult> => {
     try {
+      // Early validation of wallet connection and network
+      if (!signer || chainId !== WORLD) {
+        return { 
+          success: false, 
+          error: new Error('Please connect your wallet to World Chain') 
+        };
+      }
+      
+      // Early validation of router contract
+      if (!router) {
+        return { 
+          success: false, 
+          error: new Error('Trading router not initialized. Please check your connection.') 
+        };
+      }
+
       setIsSwapping(true);
       setError(null);
       
@@ -117,10 +134,6 @@ export function useWorldChainSwap() {
         txParams = [params.path.slice(0, -1), params.amountIn, params.minOut, params.referralCode || ethers.ZeroHash];
       }
       
-      if (!router) {
-        throw new Error('Router not initialized');
-      }
-      
       // Execute transaction
       const tx = await router[method](...txParams, { value });
       setLastTx(tx);
@@ -136,12 +149,18 @@ export function useWorldChainSwap() {
       };
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
-      Logger.error(`Swap failed: ${error.message}`);
+      Logger.error(`Swap failed: ${error.message}`, {
+        path: params.path,
+        amountIn: params.amountIn.toString(),
+        minOut: params.minOut.toString(),
+        error
+      });
       setError(error);
       
       return {
         success: false,
-        error
+        error,
+        errorCode: error.message.includes('denied') ? 'USER_DENIED' : 'SWAP_FAILED'
       };
     } finally {
       setIsSwapping(false);
@@ -208,17 +227,25 @@ export function useWorldChainPosition() {
   const increasePosition = useCallback(async (
     params: PositionParams
   ): Promise<TradingResult> => {
-    if (!signer || chainId !== WORLD) {
+    // Early validation with user-friendly messages
+    if (!signer) {
       return { 
         success: false, 
-        error: new Error('Invalid signer or chain') 
+        error: new Error('Please connect your wallet to continue') 
+      };
+    }
+
+    if (chainId !== WORLD) {
+      return { 
+        success: false, 
+        error: new Error(`Please switch to World Chain (Chain ID: ${WORLD})`) 
       };
     }
     
     if (!positionRouter) {
       return { 
         success: false, 
-        error: new Error('PositionRouter not initialized') 
+        error: new Error('Trading system not ready. Please try again in a moment.') 
       };
     }
     

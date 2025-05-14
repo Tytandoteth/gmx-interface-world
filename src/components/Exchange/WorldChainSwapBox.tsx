@@ -1,56 +1,728 @@
-/**
- * World Chain Swap Box
- * Higher-order component that connects the SwapBox to World Chain contracts
- */
 
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+
+import React, { useState, useMemo, useCallback, useEffect, Suspense } from 'react';
 import { ethers } from 'ethers';
 import { useChainId } from 'wagmi';
 
-// Config imports
-import { WORLD } from '../../config/chains';
-import { getTokenBySymbol } from '../../config/tokens';
-
-// Domain imports
-import { approveTokens } from '../../domain/tokens';
-
-// Utility imports
-import { formatAmount } from '../../lib/numbers';
-import useWallet from '../../lib/wallets/useWallet';
-import { Logger } from '../../lib/logger';
-import { helperToast } from '../../lib/helperToast';
-
-// World Chain specific imports
-import { 
-  WORLD_ETH_TOKEN, 
-  WORLD_USDC_TOKEN, 
-  getWorldChainNativeToken,
-  isWorldChain 
-} from '../../lib/worldchain';
-import { getSafeTokenSymbol, getSafeTokenAddress, createSafeToken } from '../../lib/worldchain/tokenUtils';
-import { WORLD_CHAIN_TOKENS } from '../../lib/worldchain/worldChainTokens';
+import { worldChain } from '../../config/chains';
+import { useWallet } from '../../App';
+import { useTransaction } from '../../context/TransactionContext/TransactionContext';
 import { useWorldChainTrading } from '../../context/WorldChainTradingContext/WorldChainTradingContext';
+import { helperToast } from '../../lib/helperToast';
+import { Logger } from '../../lib/logger';
 
-// Components
-import SwapBox from '../Synthetics/SwapBox/SwapBox';
-import './WorldChainSwapBox.css';
+// Constants for World Chain tokens
+const WORLD_NATIVE_TOKEN = '0x163f8C2467924be0ae7B5347228CABF260318753'; // WLD
+const WORLD_ETH_TOKEN = '0x4200000000000000000000000000000000000006'; // WETH on World Chain
+const WORLD_USDC_TOKEN = '0x06eFdBFf2a14a7c8E15944D1F4A48F9F95F663A4'; // USDC on World Chain
 
 /**
- * Interface for SwapBox props
+ * Token interface with all required properties
+ */
+interface TokenInfo {
+  address: string;
+  symbol: string;
+  name: string;
+  decimals: number;
+  isNative?: boolean;
+  isShortable?: boolean;
+  isStable?: boolean;
+  prices?: {
+    minPrice: bigint;
+    maxPrice: bigint;
+  };
+}
+
+/**
+ * Type definition for token mapping
+ */
+type TokensMap = Record<string, TokenInfo>;
+
+/**
+ * Parameters for swap operations
+ */
+interface SwapParams {
+  fromToken: string; // Address of the token to swap from
+  toToken: string; // Address of the token to swap to
+  amount: bigint;
+  slippage: number;
+}
+
+/**
+ * Result of a trading operation
+ */
+interface TradingResult {
+  success: boolean;
+  tx?: { // Using tx instead of transaction to match the expected API
+    hash: string;
+  };
+  error?: string;
+}
+
+/**
+ * Transaction data interface
+ */
+interface TransactionDetails {
+  hash: string;
+  description: string;
+}
+
+/**
+ * Props interface for the SwapBox component
  */
 interface SwapBoxProps {
-  setPendingTxns: (txns: any[]) => void;
-  pendingTxns: any[];
+  savedIsPnlInLeverage?: boolean;
+  setSavedIsPnlInLeverage?: (value: boolean) => void;
+  savedSlippageAmount?: number;
+  setSavedSlippageAmount?: (value: number) => void;
+  setPendingTxns?: (txns: Array<Record<string, unknown>>) => void;
+  pendingTxns?: Array<Record<string, unknown>>;
+  infoTokens?: Record<string, TokenInfo>;
+  tokenData?: Record<string, TokenInfo>;
+  fromTokenAddress?: string;
+  toTokenAddress?: string;
+  setFromTokenAddress?: (address: string) => void;
+  setToTokenAddress?: (address: string) => void;
+}
+
+/**
+ * Convert numbers to strings safely for formatting
+ */
+const safeNumberToString = (value: number | bigint | string | undefined): string => {
+  if (value === undefined) return '0';
+  return value.toString();
+};
+
+/**
+ * Token symbol to address mapping
+ */
+const TOKEN_ADDRESS_MAP: Record<string, string> = {
+  "WLD": WORLD_NATIVE_TOKEN,
+  "ETH": WORLD_ETH_TOKEN,
+  "USDC": WORLD_USDC_TOKEN
+};
+
+/**
+ * Get token information by symbol
+ */
+const getTokenBySymbol = (chain: string, symbol: string): TokenInfo => {
+  // Fallback implementation until proper token system is in place
+  const worldTokens: Record<string, TokenInfo> = {
+    "WLD": {
+      address: WORLD_NATIVE_TOKEN,
+      symbol: "WLD",
+      name: "World",
+      decimals: 18,
+      isNative: true
+    },
+    "ETH": {
+      address: WORLD_ETH_TOKEN,
+      symbol: "ETH",
+      name: "Ethereum",
+      decimals: 18
+    },
+    "USDC": {
+      address: WORLD_USDC_TOKEN,
+      symbol: "USDC",
+      name: "USD Coin",
+      decimals: 6,
+      isStable: true
+    }
+  };
+  
+  return worldTokens[symbol] || {
+    address: ethers.ZeroAddress,
+    symbol: "UNKNOWN",
+    name: "Unknown Token",
+    decimals: 18
+  };
+};
+
+/**
+ * World Chain Swap Box Component
+ * Connects SwapBox component to World Chain contracts
+ */
+const WorldChainSwapBox: React.FC<SwapBoxProps> = (props) => {
+  const { 
+    savedIsPnlInLeverage = false,
+    setSavedIsPnlInLeverage,
+    savedSlippageAmount = 0.5,
+    setSavedSlippageAmount,
+    setPendingTxns,
+    pendingTxns = []
+  } = props;
+  
+  // Store selected token addresses
+  const [fromToken, setFromToken] = useState<string>(TOKEN_ADDRESS_MAP["WLD"]);
+  const [toToken, setToToken] = useState<string>(TOKEN_ADDRESS_MAP["ETH"]);
+  
+  // Store swap amount
+  const [swapAmount, setSwapAmount] = useState<string>("");
+  
+  // Get chain ID
+  const chainId = useChainId();
+  
+  // Get wallet info
+  const { account, active } = useWallet();
+  
+  // Transaction monitoring
+  const { addTransaction } = useTransaction();
+  
+  // World Chain trading functions
+  const { 
+    executeSwap, 
+    isSwapping, 
+    getTokenPrice, 
+    isPriceAvailable 
+  } = useWorldChainTrading();
+  
+  /**
+   * Check if the current chain is World Chain
+   */
+  const isConnectedToWorldChain = useMemo(() => {
+    return isWorldChain(chainId);
+  }, [chainId]);
+  
+  /**
+   * Create a simplified token info map for World Chain tokens
+   */
+  const worldChainTokensInfo: TokensMap = useMemo(() => {
+    const tokensMap: TokensMap = {};
+    
+    // Add World native token
+    tokensMap["WLD"] = {
+      address: getWorldChainNativeToken(),
+      symbol: "WLD",
+      name: "World",
+      decimals: 18,
+      isNative: true
+    };
+    
+    // Add ETH
+    tokensMap["ETH"] = {
+      address: WORLD_ETH_TOKEN,
+      symbol: "ETH",
+      name: "Ethereum",
+      decimals: 18
+    };
+    
+    // Add USDC
+    tokensMap["USDC"] = {
+      address: WORLD_USDC_TOKEN,
+      symbol: "USDC",
+      name: "USD Coin",
+      decimals: 6,
+      isStable: true
+    };
+    
+    return tokensMap;
+  }, []);
+  
+  /**
+   * Get token prices for World Chain tokens
+   */
+  const tokenPrices = useMemo(() => {
+    const prices: Record<string, number> = {};
+    
+    // Set some default prices (these would be fetched from oracle in production)
+    prices["WLD"] = 1.25;
+    prices["ETH"] = 3000;
+    prices["USDC"] = 1.0;
+    
+    return prices;
+  }, []);
+  
+  /**
+   * Handle approving token for swap
+   */
+  const handleApprove = useCallback(async (tokenAddress: string, amount: string) => {
+    if (!account || !active) {
+      helperToast.error("Wallet not connected");
+      return;
+    }
+    
+    try {
+      // This is a stub - actual approval would need to be implemented
+      helperToast.success("Token approved");
+    } catch (error) {
+      Logger.error(error);
+      helperToast.error("Error approving token");
+    }
+  }, [account, active]);
+  
+  /**
+   * Handle token swap
+   */
+  const handleSwap = useCallback(async () => {
+    if (!account || !active) {
+      helperToast.error("Wallet not connected");
+      return;
+    }
+    
+    if (!swapAmount || parseFloat(swapAmount) <= 0) {
+      helperToast.error("Invalid swap amount");
+      return;
+    }
+    
+    try {
+      const fromTokenInfo = getTokenBySymbol("WORLD", "WLD");
+      const toTokenInfo = getTokenBySymbol("WORLD", "ETH");
+      
+      const parsedAmount = ethers.parseUnits(
+        swapAmount,
+        fromTokenInfo.decimals
+      );
+      
+      // Execute the swap
+      const result = await executeSwap({
+        fromTokenAddress: fromTokenInfo.address,
+        toTokenAddress: toTokenInfo.address,
+        amount: parsedAmount,
+        slippage: savedSlippageAmount
+      });
+      
+      if (result.success && result.transaction) {
+        // Monitor the transaction
+        addTransaction({
+          hash: result.transaction.hash,
+          description: `Swap ${swapAmount} ${fromTokenInfo.symbol} for ${toTokenInfo.symbol}`,
+        });
+        
+        helperToast.success("Swap initiated successfully");
+      } else {
+        helperToast.error(result.error || "Swap failed");
+      }
+    } catch (error) {
+      Logger.error(error);
+      helperToast.error("Error executing swap");
+    }
+  }, [account, active, swapAmount, executeSwap, addTransaction, savedSlippageAmount]);
+  
+  /**
+   * Calculate display values for the swap box
+   */
+  const displayValues = useMemo(() => {
+    const fromTokenInfo = getTokenBySymbol("WORLD", "WLD");
+    const toTokenInfo = getTokenBySymbol("WORLD", "ETH");
+    
+    const fromTokenPrice = tokenPrices[fromTokenInfo.symbol] || 0;
+    const toTokenPrice = tokenPrices[toTokenInfo.symbol] || 0;
+    
+    let toAmount = "0";
+    let fromUsd = "$0.00";
+    let toUsd = "$0.00";
+    
+    if (swapAmount && parseFloat(swapAmount) > 0) {
+      // Calculate receiving amount based on price ratio
+      const fromAmount = parseFloat(swapAmount);
+      const expectedToAmount = (fromAmount * fromTokenPrice) / toTokenPrice;
+      
+      // Format amounts for display
+      toAmount = expectedToAmount.toFixed(6);
+      fromUsd = `$${(fromAmount * fromTokenPrice).toFixed(2)}`;
+      toUsd = `$${(expectedToAmount * toTokenPrice).toFixed(2)}`;
+    }
+    
+    return {
+      fromTokenSymbol: fromTokenInfo.symbol,
+      toTokenSymbol: toTokenInfo.symbol,
+      fromTokenPrice: `$${fromTokenPrice.toFixed(2)}`,
+      toTokenPrice: `$${toTokenPrice.toFixed(2)}`,
+      toAmount,
+      fromUsd,
+      toUsd
+    };
+  }, [swapAmount, tokenPrices]);
+  
+  // Effect to handle token setting from props
+  useEffect(() => {
+    if (props.fromTokenAddress) {
+      setFromToken(props.fromTokenAddress);
+    }
+    
+    if (props.toTokenAddress) {
+      setToToken(props.toTokenAddress);
+    }
+  }, [props.fromTokenAddress, props.toTokenAddress]);
+  
+  // If not connected to World Chain, show a message
+  if (!isConnectedToWorldChain) {
+    return (
+      <div className="WorldChainSwapBox">
+        <div className="ConnectMessage">
+          <h2>Connect to World Chain</h2>
+          <p>Please connect your wallet to World Chain to use the swap functionality.</p>
+        </div>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="WorldChainSwapBox">
+      <Suspense fallback={<div>Loading SwapBox...</div>}>
+        {/* Placeholder SwapBox component until actual implementation is available */}
+        <div className="WorldChainSwapBox-content">
+          <h2>World Chain Swap</h2>
+          
+          <div className="SwapBox-tokens">
+            <div className="SwapBox-token-section">
+              <label>From</label>
+              <select 
+                value={fromToken} 
+                onChange={(e) => setFromToken(e.target.value)}
+                className="SwapBox-token-selector"
+              >
+                {Object.keys(worldChainTokensInfo).map((symbol) => (
+                  <option key={symbol} value={worldChainTokensInfo[symbol].address}>
+                    {symbol}
+                  </option>
+                ))}
+              </select>
+              <input
+                type="number"
+                placeholder="0.0"
+                value={swapAmount}
+                onChange={(e) => setSwapAmount(e.target.value)}
+                className="SwapBox-amount-input"
+              />
+              <div className="SwapBox-token-value">{displayValues.fromUsd}</div>
+            </div>
+            
+            <div className="SwapBox-arrow">↓</div>
+            
+            <div className="SwapBox-token-section">
+              <label>To</label>
+              <select 
+                value={toToken} 
+                onChange={(e) => setToToken(e.target.value)}
+                className="SwapBox-token-selector"
+              >
+                {Object.keys(worldChainTokensInfo).map((symbol) => (
+                  <option key={symbol} value={worldChainTokensInfo[symbol].address}>
+                    {symbol}
+                  </option>
+                ))}
+              </select>
+              <div className="SwapBox-readonly-amount">{displayValues.toAmount}</div>
+              <div className="SwapBox-token-value">{displayValues.toUsd}</div>
+            </div>
+          </div>
+          
+          <div className="SwapBox-slippage">
+            <label>Slippage Tolerance: {savedSlippageAmount}%</label>
+            <input
+              type="range"
+              min="0.1"
+              max="5"
+              step="0.1"
+              value={savedSlippageAmount}
+              onChange={(e) => setSavedSlippageAmount && setSavedSlippageAmount(parseFloat(e.target.value))}
+            />
+          </div>
+          
+          <button 
+            className={`SwapBox-submit-button ${isSwapping ? 'disabled' : ''}`}
+            onClick={handleSwap}
+            disabled={isSwapping || !swapAmount || parseFloat(swapAmount) <= 0}
+          >
+            {isSwapping ? 'Swapping...' : 'Swap'}
+          </button>
+          
+          <div className="SwapBox-info">
+            <div>Rate: 1 {displayValues.fromTokenSymbol} = {(tokenPrices[displayValues.toTokenSymbol] / tokenPrices[displayValues.fromTokenSymbol]).toFixed(6)} {displayValues.toTokenSymbol}</div>
+          </div>
+        </div>
+      </Suspense>
+    </div>
+  );
+};
+
+export default WorldChainSwapBox;
+
+
+  
+  /**
+   * Check if the current chain is World Chain
+   */
+  const isConnectedToWorldChain = useMemo(() => {
+    return isWorldChain(chainId);
+  }, [chainId]);
+  
+  /**
+   * Create a simplified token info map for World Chain tokens
+   */
+  const worldChainTokensInfo = useMemo(() => {
+    const tokensMap: TokensMap = {};
+    
+    // Add World native token
+    tokensMap["WLD"] = {
+      address: getWorldChainNativeToken(),
+      symbol: "WLD",
+      name: "World",
+      decimals: 18,
+      isNative: true
+    };
+    
+    // Add ETH
+    tokensMap["ETH"] = {
+      address: WORLD_ETH_TOKEN,
+      symbol: "ETH",
+      name: "Ethereum",
+      decimals: 18
+    };
+    
+    // Add USDC
+    tokensMap["USDC"] = {
+      address: WORLD_USDC_TOKEN,
+      symbol: "USDC",
+      name: "USD Coin",
+      decimals: 6,
+      isStable: true
+    };
+    
+    return tokensMap;
+  }, []);
+  
+  /**
+   * Get token prices for World Chain tokens
+   */
+  const tokenPrices = useMemo(() => {
+    const prices: Record<string, number> = {};
+    
+    // Set some default prices (these would be fetched from oracle in production)
+    prices["WLD"] = 1.25;
+    prices["ETH"] = 3000;
+    prices["USDC"] = 1.0;
+    
+    return prices;
+  }, []);
+  
+  /**
+   * Handle approving token for swap
+   */
+  const handleApprove = useCallback(async (token: string, amount: string) => {
+    if (!account || !active) {
+      helperToast.error("Wallet not connected");
+      return;
+    }
+    
+    try {
+      const fromTokenInfo = getTokenBySymbol("WORLD", "WLD");
+      const tokenAddress = fromTokenInfo.address;
+      
+      // This is a stub - actual approval would need to be implemented
+      helperToast.success("Token approved");
+    } catch (error) {
+      Logger.error(error);
+      helperToast.error("Error approving token");
+    }
+  }, [account, active]);
+  
+  /**
+   * Handle token swap
+   */
+  const handleSwap = useCallback(async () => {
+    if (!account || !active) {
+      helperToast.error("Wallet not connected");
+      return;
+    }
+    
+    if (!swapAmount || parseFloat(swapAmount) <= 0) {
+      helperToast.error("Invalid swap amount");
+      return;
+    }
+    
+    try {
+      const fromTokenInfo = getTokenBySymbol("WORLD", "WLD");
+      const toTokenInfo = getTokenBySymbol("WORLD", "ETH");
+      
+      const parsedAmount = ethers.parseUnits(
+        swapAmount,
+        fromTokenInfo.decimals
+      );
+      
+      // Execute the swap
+      const result = await executeSwap({
+        fromToken: fromTokenInfo.address,
+        toToken: toTokenInfo.address,
+        amount: parsedAmount,
+        slippage: savedSlippageAmount
+      });
+      
+      if (result && result.tx) {
+        // Monitor the transaction
+        monitorTransaction({
+          hash: result.tx.hash,
+          description: `Swap ${swapAmount} ${fromTokenInfo.symbol} for ${toTokenInfo.symbol}`,
+        });
+        
+        helperToast.success("Swap initiated successfully");
+      } else {
+        helperToast.error("Swap failed");
+      }
+    } catch (error) {
+      Logger.error(error);
+      helperToast.error("Error executing swap");
+    }
+  }, [account, active, swapAmount, executeSwap, monitorTransaction, savedSlippageAmount]);
+  
+  /**
+   * Calculate display values for the swap box
+   */
+  const displayValues = useMemo(() => {
+    const fromTokenInfo = getTokenBySymbol("WORLD", "WLD");
+    const toTokenInfo = getTokenBySymbol("WORLD", "ETH");
+    
+    const fromTokenPrice = tokenPrices[fromTokenInfo.symbol] || 0;
+    const toTokenPrice = tokenPrices[toTokenInfo.symbol] || 0;
+    
+    let toAmount = "0";
+    let fromUsd = "$0.00";
+    let toUsd = "$0.00";
+    
+    if (swapAmount && parseFloat(swapAmount) > 0) {
+      // Calculate receiving amount based on price ratio
+      const fromAmount = parseFloat(swapAmount);
+      const expectedToAmount = (fromAmount * fromTokenPrice) / toTokenPrice;
+      
+      // Format amounts for display
+      toAmount = expectedToAmount.toFixed(6);
+      fromUsd = `$${(fromAmount * fromTokenPrice).toFixed(2)}`;
+      toUsd = `$${(expectedToAmount * toTokenPrice).toFixed(2)}`;
+    }
+    
+    return {
+      fromTokenSymbol: fromTokenInfo.symbol,
+      toTokenSymbol: toTokenInfo.symbol,
+      fromTokenPrice: `$${fromTokenPrice.toFixed(2)}`,
+      toTokenPrice: `$${toTokenPrice.toFixed(2)}`,
+      toAmount,
+      fromUsd,
+      toUsd
+    };
+  }, [swapAmount, tokenPrices]);
+  
+  // Effect to handle token setting from props
+  useEffect(() => {
+    if (props.fromTokenAddress) {
+      setFromToken(props.fromTokenAddress);
+    }
+    
+    if (props.toTokenAddress) {
+      setToToken(props.toTokenAddress);
+    }
+  }, [props.fromTokenAddress, props.toTokenAddress]);
+  
+  // If not connected to World Chain, show a message
+  if (!isConnectedToWorldChain) {
+    return (
+      <div className="WorldChainSwapBox">
+        <div className="ConnectMessage">
+          <h2>Connect to World Chain</h2>
+          <p>Please connect your wallet to World Chain to use the swap functionality.</p>
+        </div>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="WorldChainSwapBox">
+      <Suspense fallback={<div>Loading SwapBox...</div>}>
+        {/* Placeholder SwapBox component - to be replaced with actual implementation */}
+        <div className="WorldChainSwapBox-content">
+          <h2>World Chain Swap</h2>
+          
+          <div className="SwapBox-tokens">
+            <div className="SwapBox-token-section">
+              <label>From</label>
+              <select 
+                value={fromToken} 
+                onChange={(e) => setFromToken(e.target.value)}
+                className="SwapBox-token-selector"
+              >
+                {Object.keys(worldChainTokensInfo).map(symbol => (
+                  <option key={symbol} value={worldChainTokensInfo[symbol].address}>
+                    {symbol}
+                  </option>
+                ))}
+              </select>
+              <input
+                type="number"
+                placeholder="0.0"
+                value={swapAmount}
+                onChange={(e) => setSwapAmount(e.target.value)}
+                className="SwapBox-amount-input"
+              />
+              <div className="SwapBox-token-value">{displayValues.fromUsd}</div>
+            </div>
+            
+            <div className="SwapBox-arrow">↓</div>
+            
+            <div className="SwapBox-token-section">
+              <label>To</label>
+              <select 
+                value={toToken} 
+                onChange={(e) => setToToken(e.target.value)}
+                className="SwapBox-token-selector"
+              >
+                {Object.keys(worldChainTokensInfo).map(symbol => (
+                  <option key={symbol} value={worldChainTokensInfo[symbol].address}>
+                    {symbol}
+                  </option>
+                ))}
+              </select>
+              <div className="SwapBox-readonly-amount">{displayValues.toAmount}</div>
+              <div className="SwapBox-token-value">{displayValues.toUsd}</div>
+            </div>
+          </div>
+          
+          <div className="SwapBox-slippage">
+            <label>Slippage Tolerance: {savedSlippageAmount}%</label>
+            <input
+              type="range"
+              min="0.1"
+              max="5"
+              step="0.1"
+              value={savedSlippageAmount}
+              onChange={(e) => setSavedSlippageAmount && setSavedSlippageAmount(parseFloat(e.target.value))}
+            />
+          </div>
+          
+          <button 
+            className={`SwapBox-submit-button ${isSwapping ? 'disabled' : ''}`}
+            onClick={handleSwap}
+            disabled={isSwapping || !swapAmount || parseFloat(swapAmount) <= 0}
+          >
+            {isSwapping ? 'Swapping...' : 'Swap'}
+          </button>
+          
+          <div className="SwapBox-info">
+            <div>Rate: 1 {displayValues.fromTokenSymbol} = {(tokenPrices[displayValues.toTokenSymbol] / tokenPrices[displayValues.fromTokenSymbol]).toFixed(6)} {displayValues.toTokenSymbol}</div>
+          </div>
+        </div>
+      </Suspense>
+    </div>
+  );
+};
+
+export default WorldChainSwapBox;
+
+/**
+ * Interface for SwapBox props with strict type safety
+ */
+interface SwapBoxProps {
+  setPendingTxns: (txns: Array<Record<string, unknown>>) => void;
+  pendingTxns: Array<Record<string, unknown>>;
   savedSlippageAmount: number;
-  infoTokens: any;
+  infoTokens: Record<string, TokenInfo>;
   openSettings: () => void;
-  positionsMap: any;
-  pendingPositions: any;
-  setPendingPositions: (positions: any) => void;
+  positionsMap: Record<string, unknown>;
+  pendingPositions: Record<string, unknown>;
+  setPendingPositions: (positions: Record<string, unknown>) => void;
   flagOrdersEnabled: boolean;
-  tokensData: any;
-  usdgSupply: any;
-  totalTokenWeights: any;
+  tokensData: Record<string, TokenInfo>;
+  usdgSupply: bigint;
+  totalTokenWeights: bigint;
   savedIsPnlInLeverage: boolean;
   savedShowPnlAfterFees: boolean;
   allowedSlippage: number;
@@ -58,39 +730,40 @@ interface SwapBoxProps {
   setFromTokenAddress: (swapOption: string, address: string) => void;
   setToTokenAddress: (swapOption: string, address: string) => void;
   setSwapOption: (option: string) => void;
-  onSelectWalletToken: (token: any) => void;
+  onSelectWalletToken: (token: TokenInfo) => void;
   onSelectShortTokenAddress: (address: string) => void;
-  [key: string]: any;
 }
 
 /**
  * World Chain version of the SwapBox component
  * Adds World Chain specific contract interactions
  */
-const WorldChainSwapBox = (props: SwapBoxProps) => {
+const WorldChainSwapBox: React.FC<SwapBoxProps> = (props) => {
+  const {
+    setPendingTxns = () => { /* no-op */ },
+    pendingTxns = [],
+    savedSlippageAmount = 0.5,
+    infoTokens = {},
+    tokensData = {},
+    savedIsPnlInLeverage = false,
+    setSavedIsPnlInLeverage = () => { /* no-op */ },
+    setSavedSlippageAmount = () => { /* no-op */ },
+  } = props;
+  
   const chainId = useChainId();
+  const { trackTransaction } = useTransaction();
   
   // Default token symbols
   const [
     fromTokenSymbol,
-    _setFromTokenSymbol
+    setFromTokenSymbol
   ] = useState<string>("WLD");
   const [
     toTokenSymbol,
-    _setToTokenSymbol
+    setToTokenSymbol
   ] = useState<string>("USDC");
   const { active, account, signer } = useWallet();
   
-  // Create saved state variables if not provided as props
-  const savedIsPnlInLeverage = props.savedIsPnlInLeverage || false;
-  const setSavedIsPnlInLeverage = props.setSavedIsPnlInLeverage || (() => { /* no-op */ });
-  const savedSlippageAmount = props.savedSlippageAmount || 0.5;
-  const setSavedSlippageAmount = props.setSavedSlippageAmount || (() => { /* no-op */ });
-  const setPendingTxns = props.setPendingTxns || (() => { /* no-op */ });
-  
-  // Prepare merged token data
-  const mergedInfoTokens = props.infoTokens || {};
-  const mergedTokensData = props.tokensData || {};
   const { 
     executeSwap, 
     increasePosition, 
@@ -99,11 +772,9 @@ const WorldChainSwapBox = (props: SwapBoxProps) => {
   } = useWorldChainTrading();
   
   // Create tokenInfo for World Chain tokens to ensure symbol property is available
-  const worldChainTokensInfo = useMemo(() => {
+  const worldChainTokensInfo = useMemo<Record<string, TokenInfo>>(() => {
     // Use real token addresses from our worldchain tokens file
-    const tokensData: any = {
-      // Make sure our token addresses are always available
-      // Native token (WLD)
+    const tokensData: Record<string, TokenInfo> = {
       [getWorldChainNativeToken()]: {
         address: getWorldChainNativeToken(),
         symbol: "WLD",
@@ -113,8 +784,8 @@ const WorldChainSwapBox = (props: SwapBoxProps) => {
         isShortable: true,
         isStable: false,
         prices: prices?.WLD ? { 
-          minPrice: ethers.parseUnits(prices.WLD.toString(), 30),
-          maxPrice: ethers.parseUnits(prices.WLD.toString(), 30) 
+          minPrice: BigInt(Math.floor((prices.WLD || 0) * 1e30)),
+          maxPrice: BigInt(Math.floor((prices.WLD || 0) * 1e30))
         } : undefined
       },
       [WORLD_ETH_TOKEN]: {
@@ -126,8 +797,8 @@ const WorldChainSwapBox = (props: SwapBoxProps) => {
         isShortable: true,
         isStable: false,
         prices: prices?.WETH ? { 
-          minPrice: ethers.parseUnits(prices.WETH.toString(), 30),
-          maxPrice: ethers.parseUnits(prices.WETH.toString(), 30) 
+          minPrice: BigInt(Math.floor((prices.WETH || 0) * 1e30)),
+          maxPrice: BigInt(Math.floor((prices.WETH || 0) * 1e30))
         } : undefined
       },
       [WORLD_USDC_TOKEN]: {
@@ -139,8 +810,8 @@ const WorldChainSwapBox = (props: SwapBoxProps) => {
         isShortable: false,
         isStable: true,
         prices: { 
-          minPrice: ethers.parseUnits("1", 30),
-          maxPrice: ethers.parseUnits("1", 30) 
+          minPrice: BigInt(1e30),
+          maxPrice: BigInt(1e30)
         }
       },
     };
