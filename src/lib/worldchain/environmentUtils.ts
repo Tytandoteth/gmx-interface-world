@@ -111,7 +111,7 @@ export function getEnvVariable<T>(
 /**
  * Gets the World Chain RPC URL
  */
-export function getWorldChainRpcUrl(): string {
+export function getWorldChainRpcUrl() {
   return getEnvVariable(
     'VITE_APP_WORLD_CHAIN_URL', 
     isProductionEnvironment() 
@@ -124,7 +124,7 @@ export function getWorldChainRpcUrl(): string {
 /**
  * Gets the Oracle Keeper URL
  */
-export function getOracleKeeperUrl(): string {
+export function getOracleKeeperUrl() {
   return getEnvVariable(
     'VITE_APP_ORACLE_KEEPER_URL',
     'https://oracle-keeper.kevin8396.workers.dev',
@@ -151,9 +151,9 @@ export function getLogLevel(): number {
  */
 export function getContractAddress(
   contractType: 'vault' | 'router' | 'positionRouter' | 'positionManager' | 'witnetPriceRouter',
-  fallback: string = '',
+  fallback = '',
   required = isProductionEnvironment()
-): string {
+) {
   const contractKey: Record<string, string> = {
     vault: 'VITE_APP_WORLD_VAULT_ADDRESS',
     router: 'VITE_APP_WORLD_ROUTER_ADDRESS',
@@ -173,9 +173,9 @@ export function getContractAddress(
  */
 export function getTokenAddress(
   tokenSymbol: 'WLD' | 'ETH' | 'USDC' | 'WLD_USDC_MARKET' | 'ETH_USDC_MARKET',
-  fallback: string = '',
+  fallback = '',
   required = isProductionEnvironment()
-): string {
+) {
   const tokenKey: Record<string, string> = {
     WLD: 'VITE_APP_WORLD_WLD_TOKEN',
     ETH: 'VITE_APP_WORLD_ETH_TOKEN',
