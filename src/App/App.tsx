@@ -31,6 +31,7 @@ import { useChainId } from "lib/chains";
 import { defaultLocale, dynamicActivate } from "lib/i18n";
 import { RainbowKitProviderWrapper } from "lib/wallets/WalletProvider";
 import { initWorldChainConfig, initWorldChainDevMode, initWorldChainMetrics, initWorldChainMulticallHandler } from "lib/worldchain";
+import "lib/worldchain/globalInit"; // Import early to ensure global configuration is initialized
 import DiagnosticsPanel from "lib/worldchain/DiagnosticsPanel";
 import { WorldChainTester } from "lib/worldchain/testingTools";
 

@@ -5,7 +5,9 @@
 
 import { ethers } from 'ethers';
 import React, { createContext, useContext, ReactNode } from 'react';
+import { useChainId } from 'wagmi';
 
+import { WORLD } from '../../config/chains';
 import { 
   useWorldChainSwap, 
   useWorldChainPosition,
@@ -37,6 +39,11 @@ interface WorldChainTradingContextType {
   pricesError: Error | null;
   isPriceAvailable: (symbol: string) => boolean;
   
+  // Network state
+  isCorrectNetwork: boolean;
+  requiredChainId: number;
+  switchToWorldChain: () => void;
+  
   // Loading states
   isLoading: boolean;
 }
@@ -63,6 +70,11 @@ const WorldChainTradingContext = createContext<WorldChainTradingContextType>({
   pricesError: null,
   isPriceAvailable: () => false,
   
+  // Default values for network state
+  isCorrectNetwork: false,
+  requiredChainId: WORLD,
+  switchToWorldChain: () => {},
+  
   // Loading state
   isLoading: true
 });
@@ -76,6 +88,24 @@ interface WorldChainTradingProviderProps {
  * Provider component for World Chain trading functionality
  */
 export const WorldChainTradingProvider: React.FC<WorldChainTradingProviderProps> = ({ children }) => {
+  // Get the current chain ID
+  const chainId = useChainId();
+  
+  // Check if connected to the correct network
+  const isCorrectNetwork = chainId === WORLD;
+  
+  // Network switching function
+  const switchToWorldChain = () => {
+    if (window.ethereum && chainId !== WORLD) {
+      window.ethereum.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{ chainId: `0x${WORLD.toString(16)}` }],
+      }).catch((error) => {
+        console.warn('Failed to switch to World Chain:', error);
+      });
+    }
+  };
+
   // Use the custom hooks
   const { 
     executeSwap, 
@@ -124,6 +154,12 @@ export const WorldChainTradingProvider: React.FC<WorldChainTradingProviderProps>
     getTokenPrice,
     isPricesLoading,
     pricesError,
+    isPriceAvailable: (symbol: string) => !!prices[symbol],
+    
+    // Network state
+    isCorrectNetwork,
+    requiredChainId: WORLD,
+    switchToWorldChain,
     
     // Loading state
     isLoading

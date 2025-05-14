@@ -6,7 +6,21 @@
 import { TokensData, TokenData, TokenPrices } from "domain/synthetics/tokens";
 import { WORLD as _WORLD } from "sdk/configs/chains";
 
+import { WLD_TOKEN_ADDRESS, USDC_TOKEN_ADDRESS, WETH_TOKEN_ADDRESS } from "./tokenAddressUtils";
 import { isWorldChain, WorldChainConfig } from "./worldChainDevMode";
+
+// Create a safe logger that doesn't use console directly
+const logger = { 
+  warn: (_: string, ...args: any[]) => { 
+    // Safer logging implementation that avoids direct console usage in production
+    const isProduction = import.meta.env.PROD === true;
+    if (!isProduction) {
+      // Only log in development mode
+      // eslint-disable-next-line no-console
+      console.warn('[WorldChain]', _, ...args);
+    }
+  } 
+};
 
 /**
  * Convert a price number to a BigInt with proper precision for TokenPrices
@@ -33,8 +47,8 @@ function createTokenPrices(price: number): TokenPrices {
   } catch (error) {
     // Using Logger instead of console for better ESLint compliance
     const errorMsg = error instanceof Error ? error.message : String(error);
-    // eslint-disable-next-line no-console
-    console.warn("[World Chain] Error creating token prices:", errorMsg);
+    // Log the error using our safe logger
+    logger.warn(`Error creating token prices: ${errorMsg}`);
     // Return a safe fallback
     const fallbackPrice = convertPriceToBigInt(WorldChainConfig.defaultPrices.DEFAULT);
     return {
@@ -45,10 +59,10 @@ function createTokenPrices(price: number): TokenPrices {
 }
 
 // World Chain token addresses
-// Real World Chain token addresses for production use
-export const WORLD_WLD_TOKEN = "0x163f8C2467924be0ae7B5347228CABF260318753"; // WLD (World token)
-export const WORLD_USDC_TOKEN = "0x06eFdBFf2a14a7c8E15944D1F4A48F9F95F663A4"; // USDC
-export const WORLD_ETH_TOKEN = "0x4200000000000000000000000000000000000006"; // WETH
+// Always use token addresses from tokenAddressUtils to ensure correct addresses in all environments
+export const WORLD_WLD_TOKEN = WLD_TOKEN_ADDRESS; // WLD (World token)
+export const WORLD_USDC_TOKEN = USDC_TOKEN_ADDRESS; // USDC
+export const WORLD_ETH_TOKEN = WETH_TOKEN_ADDRESS; // WETH
 
 // For compatibility with existing code - ETH is our primary token
 export const WORLD_NATIVE_TOKEN = WORLD_WLD_TOKEN; // WLD is native on World Chain
@@ -119,7 +133,7 @@ const WORLD_CHAIN_TOKEN_INFO = {
     coingeckoUrl: "https://www.coingecko.com/en/coins/bitcoin",
     explorerUrl: "https://explorer.world.com/token/" + WORLD_BTC_TOKEN,
     // Default price from config
-    defaultPrice: WorldChainConfig.defaultPrices.BTC
+    defaultPrice: WorldChainConfig.defaultPrices.BTC || 55000.00
   },
   [WORLD_USDT_TOKEN]: {
     name: "Tether",
@@ -160,7 +174,7 @@ const WORLD_CHAIN_TOKEN_INFO = {
     coingeckoUrl: "https://www.coingecko.com/en/coins/wrapped-bitcoin",
     explorerUrl: "https://explorer.world.com/token/" + WORLD_WBTC_TOKEN,
     // Default price from config
-    defaultPrice: WorldChainConfig.defaultPrices.BTC || 55000.00
+    defaultPrice: WorldChainConfig.defaultPrices.BTC || 55000.00 // Use BTC price for WBTC
   },
 };
 
@@ -227,9 +241,8 @@ export function getWorldChainTokensData(existingData: TokensData | Record<string
     // Validate that all of our predefined tokens have valid prices
     Object.entries(worldChainTokens).forEach(([address, tokenData]) => {
       if (!tokenData.prices || !tokenData.prices.minPrice || !tokenData.prices.maxPrice) {
-        // eslint-disable-next-line no-console
-        console.log("[World Chain] Native token address:", WORLD_NATIVE_TOKEN);
-        console.log("[World Chain] Token address not found in WORLD_CHAIN_TOKEN_INFO:", address);
+        logger.warn("Native token address:", WORLD_NATIVE_TOKEN);
+        logger.warn("Token address not found in WORLD_CHAIN_TOKEN_INFO:", address);
         worldChainTokens[address] = {
           ...tokenData,
           prices: createTokenPrices(WorldChainConfig.defaultPrices.DEFAULT)

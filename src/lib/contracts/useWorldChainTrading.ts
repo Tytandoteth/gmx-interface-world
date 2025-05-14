@@ -5,16 +5,15 @@
 
 import { ethers } from 'ethers';
 import { useEffect, useState, useCallback } from 'react';
-import { useAccount, useChainId } from 'wagmi';
+import { useChainId, useAccount, useConnect } from 'wagmi';
+import { BigNumber } from 'ethers';
 
 import { WORLD } from '../../config/chains';
+import { useWorldChainRouter, useWorldChainVault, useWorldChainPositionRouter } from './worldChainV1Contracts';
+import { usePrices } from '../prices/usePrices';
 import { Logger } from '../logger';
-import { fetchOracleKeeperPrices } from '../../services/oracleKeeperService';
 
-import { 
-  useWorldChainRouter, 
-  useWorldChainPositionRouter 
-} from './worldChainV1Contracts';
+import { NetworkError, NetworkErrorCode } from '../errors/networkErrors';
 
 // Configure constants for the module
 
@@ -92,19 +91,36 @@ export function useWorldChainSwap() {
    */
   const executeSwap = useCallback(async (params: SwapParams): Promise<TradingResult> => {
     try {
-      // Early validation of wallet connection and network
-      if (!signer || chainId !== WORLD) {
+      // Check for correct network
+      if (chainId !== WORLD) {
         return { 
           success: false, 
-          error: new Error('Please connect your wallet to World Chain') 
+          error: new NetworkError(
+            'Please connect to World Chain', 
+            NetworkErrorCode.WRONG_NETWORK
+          )
         };
       }
-      
-      // Early validation of router contract
+
+      // Check for wallet connection
+      if (!signer) {
+        return { 
+          success: false, 
+          error: new NetworkError(
+            'Please connect your wallet', 
+            NetworkErrorCode.NO_WALLET
+          ) 
+        };
+      }
+
+      // Check contract initialization
       if (!router) {
         return { 
           success: false, 
-          error: new Error('Trading router not initialized. Please check your connection.') 
+          error: new NetworkError(
+            'Router contract not initialized', 
+            NetworkErrorCode.CONTRACT_UNAVAILABLE
+          ) 
         };
       }
 
@@ -227,25 +243,36 @@ export function useWorldChainPosition() {
   const increasePosition = useCallback(async (
     params: PositionParams
   ): Promise<TradingResult> => {
-    // Early validation with user-friendly messages
-    if (!signer) {
-      return { 
-        success: false, 
-        error: new Error('Please connect your wallet to continue') 
-      };
-    }
-
+    // Check for correct network
     if (chainId !== WORLD) {
       return { 
         success: false, 
-        error: new Error(`Please switch to World Chain (Chain ID: ${WORLD})`) 
+        error: new NetworkError(
+          'Please connect to World Chain', 
+          NetworkErrorCode.WRONG_NETWORK
+        )
       };
     }
-    
+
+    // Check for wallet connection
+    if (!signer) {
+      return { 
+        success: false, 
+        error: new NetworkError(
+          'Please connect your wallet', 
+          NetworkErrorCode.NO_WALLET
+        ) 
+      };
+    }
+
+    // Check contract initialization
     if (!positionRouter) {
       return { 
         success: false, 
-        error: new Error('Trading system not ready. Please try again in a moment.') 
+        error: new NetworkError(
+          'PositionRouter contract not initialized', 
+          NetworkErrorCode.CONTRACT_UNAVAILABLE
+        ) 
       };
     }
     
@@ -309,7 +336,32 @@ export function useWorldChainPosition() {
         hash: receipt.hash
       };
     } catch (err) {
-      const error = err instanceof Error ? err : new Error(String(err));
+      // Create appropriate error type based on the error
+      let error: Error;
+      
+      if (err instanceof Error) {
+        if (err.message.includes('user rejected')) {
+          error = new NetworkError(
+            'Transaction was rejected by user', 
+            NetworkErrorCode.TX_REJECTED
+          );
+        } else if (err.message.includes('insufficient funds')) {
+          error = new NetworkError(
+            'Insufficient funds for transaction', 
+            NetworkErrorCode.TX_FAILED
+          );
+        } else if (err.message.includes('execution reverted')) {
+          error = new NetworkError(
+            'Transaction execution failed', 
+            NetworkErrorCode.EXECUTION_REVERTED
+          );
+        } else {
+          error = err;
+        }
+      } else {
+        error = new Error(String(err));
+      }
+      
       Logger.error(`Position increase failed: ${error.message}`);
       setError(error);
       
@@ -438,3 +490,83 @@ export function useWorldChainPrices() {
     isPriceAvailable
   };
 }
+
+/**
+ * Combined hook for World Chain trading operations
+ * Provides a unified interface for all trading functions
+ */
+export const useWorldChainTrading = () => {
+  // Get the chain ID to check for the correct network
+  const chainId = useChainId();
+  const isCorrectNetwork = chainId === WORLD;
+
+  // Function to request network switch to World Chain
+  const switchToWorldChain = useCallback(() => {
+    if (window.ethereum && chainId !== WORLD) {
+      window.ethereum.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{ chainId: `0x${WORLD.toString(16)}` }],
+      }).catch((error) => {
+        Logger.error('Failed to switch to World Chain:', error);
+      });
+    }
+  }, [chainId]);
+  
+  const { 
+    executeSwap: swapFn, 
+    isSwapping, 
+    lastTx: swapLastTx, 
+    error: swapError,
+    isLoading: isSwapLoading
+  } = useWorldChainSwap();
+  
+  const {
+    increasePosition: positionFn,
+    getMinExecutionFee,
+    isProcessing: isProcessingPosition,
+    lastTx: positionLastTx,
+    error: positionError,
+    isLoading: isPositionLoading
+  } = useWorldChainPosition();
+  
+  const {
+    prices,
+    getTokenPrice,
+    isLoading: isPricesLoading,
+    error: pricesError,
+    isPriceAvailable
+  } = useWorldChainPrices();
+  
+  const isLoading = isSwapLoading || isPositionLoading || isPricesLoading;
+
+  // Return all trading functionality
+  return {
+    // Swap operations
+    executeSwap: swapFn,
+    isSwapping,
+    swapLastTx,
+    swapError,
+    
+    // Position operations
+    increasePosition: positionFn,
+    getMinExecutionFee,
+    isProcessingPosition,
+    positionLastTx,
+    positionError,
+    
+    // Price data
+    prices,
+    getTokenPrice,
+    isPricesLoading,
+    pricesError,
+    isPriceAvailable,
+    
+    // Network state
+    isCorrectNetwork,
+    requiredChainId: WORLD,
+    switchToWorldChain,
+    
+    // Loading state
+    isLoading
+  };
+};

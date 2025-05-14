@@ -5,9 +5,12 @@
 
 import { ethers } from 'ethers';
 
-import { WORLD } from '../../config/chains';
 import { abis } from "sdk/abis";
+import { WORLD } from '../../config/chains';
 import { Logger } from '../logger';
+
+import { getContractAddress, getOracleKeeperUrl as fetchOracleKeeperUrl } from './environmentUtils';
+import { getWorldChainProvider } from './providers';
 
 // Create a simple logger interface
 const logger = {
@@ -17,36 +20,33 @@ const logger = {
   debug: (...args: any[]) => Logger.debug('[worldChainContractUtils]', ...args),
 };
 
-// Default RPC URL for World Chain
-const DEFAULT_RPC_URL = 'https://sleek-little-leaf.worldchain-mainnet.quiknode.pro/49cff082c3f8db6bc60bd05d7256d2fda94a42cd/';
-
-// Get environment variables for contract addresses with fallbacks
+// Get contract addresses using standardized environment utilities
 const getVaultAddress = (): string => 
-  import.meta.env.VITE_VAULT_ADDRESS || '0x6519E08ecC9B2763FbEf360132a8303dc2E9ccE5';
+  getContractAddress('vault', '0x6519E08ecC9B2763FbEf360132a8303dc2E9ccE5', true);
 
 const getRouterAddress = (): string => 
-  import.meta.env.VITE_ROUTER_ADDRESS || '0x1958F6Cba8eb87902bDc1805A2a3bD5842BE645b';
+  getContractAddress('router', '0x1958F6Cba8eb87902bDc1805A2a3bD5842BE645b', true);
 
 const getPositionRouterAddress = (): string => 
-  import.meta.env.VITE_POSITION_ROUTER_ADDRESS || '0x566e66c17a6DfE5B0964fA0AFC85cF3cc5963dAF';
+  getContractAddress('positionRouter', '0x566e66c17a6DfE5B0964fA0AFC85cF3cc5963dAF', true);
 
 const getPositionManagerAddress = (): string => 
-  import.meta.env.VITE_POSITION_MANAGER_ADDRESS || '0x0AC8566466e68678d2d32F625d2d3CD9e6cf088D';
+  getContractAddress('positionManager', '0x0AC8566466e68678d2d32F625d2d3CD9e6cf088D', true);
 
-const getRpcUrl = (): string => 
-  import.meta.env.VITE_WORLD_RPC_URL || DEFAULT_RPC_URL;
-
-const getOracleKeeperUrl = (): string => 
-  import.meta.env.VITE_ORACLE_KEEPER_URL || 'https://oracle-keeper.kevin8396.workers.dev';
+// Use the standardized utility for Oracle Keeper URL
+const getOracleKeeperUrl = (): string => {
+  return fetchOracleKeeperUrl();
+};
 
 /**
  * Create a provider for World Chain
+ * Uses the standardized provider from providers.ts
  * @returns Ethers provider instance
  */
 export function createWorldChainProvider(): ethers.JsonRpcProvider {
-  const rpcUrl = getRpcUrl();
-  logger.info(`Creating World Chain provider with RPC: ${rpcUrl}`);
-  return new ethers.JsonRpcProvider(rpcUrl);
+  // Use the standardized provider from providers.ts
+  logger.info('Creating World Chain provider using standard implementation');
+  return getWorldChainProvider();
 }
 
 /**

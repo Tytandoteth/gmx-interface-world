@@ -15,6 +15,7 @@ import { abis } from "sdk/abis";
 import Debug from "components/Debug/Debug";
 import TestingPanel from "components/WorldChainDevMode/TestingPanel";
 
+import WorldChainExchange from "pages/WorldChainExchange";
 import WorldChainDevTools from "pages/DevTools/WorldChainDevTools";
 import ContractTestingPage from "pages/ContractTesting/ContractTestingPage";
 import { AccountsRouter } from "pages/Actions/ActionsRouter";
@@ -132,6 +133,9 @@ export function MainRoutes({ openSettings }: { openSettings: () => void }) {
       </Route>
 
       {/* World Chain specific tools */}
+      <Route exact path="/worldchain">
+        <WorldChainExchange />
+      </Route>
       <Route exact path="/worldchain/dev-tools">
         <WorldChainDevTools />
       </Route>

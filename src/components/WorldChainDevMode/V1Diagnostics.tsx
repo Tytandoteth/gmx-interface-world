@@ -4,8 +4,9 @@ import Card from '../Common/Card';
 
 import { WORLD } from '../../config/chains';
 import { getV1WhitelistedTokens } from '../../config/worldChainTokens.v1';
-import { createWorldChainProvider, WORLD_CHAIN_RPC } from '../../lib/contracts/worldChainV1Contracts';
+import { createWorldChainProvider } from '../../lib/contracts/worldChainV1Contracts';
 import { useWorldChainVault, useWorldChainRouter, useWorldChainVaultPriceFeed } from '../../lib/contracts/worldChainV1Contracts';
+import { getWorldChainRpcUrl } from '../../lib/worldchain/environmentUtils';
 import { checkOracleKeeperHealth } from '../../lib/oraclePrices/worldChainPriceFeed';
 
 interface ContractStatus {
@@ -31,7 +32,7 @@ interface OracleStatus {
 const V1Diagnostics: React.FC = () => {
   const [contractStatuses, setContractStatuses] = useState<ContractStatus[]>([]);
   const [rpcStatus, setRpcStatus] = useState<RpcStatus>({
-    endpoint: WORLD_CHAIN_RPC,
+    endpoint: getWorldChainRpcUrl(),
     connected: false,
     blockNumber: null,
     error: null
@@ -78,11 +79,12 @@ const V1Diagnostics: React.FC = () => {
   // Verify RPC connection on mount
   useEffect(() => {
     const checkRpcConnection = async () => {
+      const rpcUrl = getWorldChainRpcUrl();
       try {
-        const provider = new ethers.JsonRpcProvider(WORLD_CHAIN_RPC);
+        const provider = new ethers.JsonRpcProvider(rpcUrl);
         const blockNumber = await provider.getBlockNumber();
         setRpcStatus({
-          endpoint: WORLD_CHAIN_RPC,
+          endpoint: rpcUrl,
           connected: true,
           blockNumber,
           error: null
@@ -90,7 +92,7 @@ const V1Diagnostics: React.FC = () => {
       } catch (error) {
         console.warn('Error connecting to World Chain RPC:', error);
         setRpcStatus({
-          endpoint: WORLD_CHAIN_RPC,
+          endpoint: rpcUrl,
           connected: false,
           blockNumber: null,
           error: (error as Error).message

@@ -9,6 +9,7 @@ import { useAccount, useChainId } from 'wagmi';
 
 import { getContractAddress } from '../../config/worldChainContracts';
 import { WORLD } from '../../config/chains';
+import { getWorldChainRpcUrl } from '../worldchain/environmentUtils';
 
 // Import full contract ABIs
 import RouterABI from '../../abis/Router.json';
@@ -24,15 +25,16 @@ const BASIC_CONTRACT_ABI = [
   'function name() view returns (string)'
 ];
 
-// The QuikNode endpoint should always be used as the primary connection
-export const WORLD_CHAIN_RPC = 'https://sleek-little-leaf.worldchain-mainnet.quiknode.pro/49cff082c3f8db6bc60bd05d7256d2fda94a42cd/';
+// Use the environment utilities to get the RPC URL
+// This ensures we have a single source of truth for the RPC endpoint
+// and allows for different environments (dev, prod, test) to use different endpoints
 
 /**
  * Creates a read-only provider for World Chain
- * Always uses the preferred QuikNode endpoint
+ * Uses the RPC URL from environment variables with fallback to QuikNode
  */
 export function createWorldChainProvider(): ethers.JsonRpcProvider {
-  return new ethers.JsonRpcProvider(WORLD_CHAIN_RPC);
+  return new ethers.JsonRpcProvider(getWorldChainRpcUrl());
 }
 
 /**

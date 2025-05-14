@@ -172,7 +172,7 @@ export function getContractAddress(
  * @param required Whether the address is required in production
  */
 export function getTokenAddress(
-  tokenSymbol: 'WLD' | 'ETH' | 'USDC' | 'WLD_USDC_MARKET' | 'ETH_USDC_MARKET',
+  tokenSymbol: 'WLD' | 'ETH' | 'USDC' | 'MAG' | 'BTC' | 'USDT' | 'WLD_USDC_MARKET' | 'ETH_USDC_MARKET',
   fallback = '',
   required = isProductionEnvironment()
 ) {
@@ -180,6 +180,9 @@ export function getTokenAddress(
     WLD: 'VITE_APP_WORLD_WLD_TOKEN',
     ETH: 'VITE_APP_WORLD_ETH_TOKEN',
     USDC: 'VITE_APP_WORLD_USDC_TOKEN',
+    MAG: 'VITE_APP_WORLD_MAG_TOKEN',
+    BTC: 'VITE_APP_WORLD_BTC_TOKEN',
+    USDT: 'VITE_APP_WORLD_USDT_TOKEN',
     WLD_USDC_MARKET: 'VITE_APP_WORLD_WLD_USDC_MARKET_TOKEN',
     ETH_USDC_MARKET: 'VITE_APP_WORLD_ETH_USDC_MARKET_TOKEN'
   };
